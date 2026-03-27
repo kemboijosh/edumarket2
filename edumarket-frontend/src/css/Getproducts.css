@@ -1,0 +1,166 @@
+.search-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  background-color: #222;
+  border: 1px solid #444;
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 999;
+}
+
+.suggestion-item {
+  padding: 10px;
+  color: white;
+  background-color: #222;
+  cursor: pointer;
+}
+
+.suggestion-item:hover {
+  background-color: #333;
+  color: white;
+}
+
+/* Heading for dark cake-themed website with italic style */
+.available-cakes {
+  font-size: 3rem;                 /* Large and visible */
+  color: #f8c291;                  /* Soft pastel gold fallback */
+  text-align: center;               /* Centered */
+  font-weight: 800;                 /* Bold and prominent */
+  font-style: italic;               /* Italic for elegance */
+  letter-spacing: 2px;              /* Modern spacing */
+  margin: 2rem 0;                   /* Space above and below */
+  position: relative;
+  cursor: default;
+  
+  /* Gradient pastel glow effect */
+  background: linear-gradient(120deg, #e4aa74, #e76e53, #3398fd);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+
+}
+/* Subtle bounce like a cake on a plate */
+@keyframes cakeBounce {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+body {
+  background-color: #121212;
+  color: #f5f5f5;
+}
+
+.container {
+  background-color: #121212;
+}
+
+.available-cakes {
+  text-align: center;
+  color: #ffcc70;
+  margin-top: 20px;
+  margin-bottom: 30px;
+  font-weight: bold;
+}
+
+.card {
+  background-color: #1e1e1e;
+  border: 1px solid #2c2c2c;
+  border-radius: 12px;
+  color: #f5f5f5;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.card-body h5 {
+  color: #ffb347;
+}
+
+.card-body p {
+  color: #d6d6d6;
+}
+
+.text-danger {
+  color: #ff7b7b !important;
+}
+
+.text-primary {
+  color: #ffcc70 !important;
+}
+
+.product_img {
+  height: 220px;
+  object-fit: cover;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.btn-outline-primary {
+  border-color: #ffcc70;
+  color: #ffcc70;
+  background-color: transparent;
+}
+
+.btn-outline-primary:hover {
+  background-color: #ffcc70;
+  color: #121212;
+}
+
+form .form-control {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  color: #f5f5f5;
+}
+
+form .form-control::placeholder {
+  color: #aaa;
+}
+
+form .btn-primary {
+  background-color: #ffb347;
+  border: none;
+  color: #121212;
+}
+
+form .btn-primary:hover {
+  background-color: #ffa726;
+  color: #121212;
+}
+
+form .btn-secondary {
+  background-color: #2c2c2c;
+  border: none;
+  color: #f5f5f5;
+}
+
+form .btn-secondary:hover {
+  background-color: #3a3a3a;
+}
+
+.suggestion-item {
+  background-color: #1e1e1e;
+  color: #f5f5f5;
+  border-bottom: 1px solid #2c2c2c;
+}
+
+.suggestion-item:hover {
+  background-color: #2a2a2a;
+}
+
+.bg-white {
+  background-color: #1e1e1e !important;
+}
+
+.border {
+  border: 1px solid #333 !important;
+}
+
+.text-center {
+  color: #f5f5f5;
+}

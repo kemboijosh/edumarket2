@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>EduMarket - Stationery & Books</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <!-- Font Awesome for Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  />
+
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --secondary: #0d9488;
+      --bg-light: #f8fafc;
+      --text-dark: #1e293b;
+      --text-light: #64748b;
+      --white: #ffffff;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --accent: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--bg-light);
+      color: var(--text-dark);
+      line-height: 1.6;
+    }
+
+    /* NAVBAR */
+    .nav {
+      background: var(--white);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .nav h2 {
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 1.5rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: color 0.3s;
+    }
+    .nav h2:hover {
+      color: var(--accent);
+    }
+    .nav-links {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    /* Buttons */
+    .nav-btn {
+      padding: 0.5rem 1.2rem;
+      border: 2px solid var(--primary);
+      background: transparent;
+      color: var(--primary);
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+    }
+    .nav-btn:hover {
+      background: var(--primary);
+      color: var(--white);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .nav-btn.primary {
+      background: var(--primary);
+      color: var(--white);
+    }
+    .nav-btn.primary:hover {
+      background: var(--primary-dark);
+      border-color: var(--primary-dark);
+    }
+
+    /* USER BADGE */
+    .user-badge {
+      background: var(--bg-light);
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      color: var(--text-dark);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    /* HERO SECTION */
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      padding: 4rem 2rem;
+      text-align: center;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+    .hero h1 {
+      font-size: 2.8rem;
+      margin-bottom: 1rem;
+    }
+    .hero p {
+      font-size: 1.2rem;
+      opacity: 0.95;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* CAROUSEL STYLES */
+    .carousel-wrapper {
+      max-width: 1200px;
+      margin: 0 auto 2rem auto;
+      padding: 0 2rem;
+    }
+    .carousel-container {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .carousel-slides {
+      display: flex;
+      transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+      height: 400px; /* Fixed height for consistency */
+    }
+    .carousel-slide {
+      min-width: 100%;
+      position: relative;
+    }
+    .carousel-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .carousel-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+      color: white;
+      padding: 2rem;
+      text-align: left;
+    }
+    .carousel-caption h3 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .carousel-caption p {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    /* Carousel Controls */
+    .carousel-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text-dark);
+      border: none;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .carousel-btn:hover {
+      background: var(--white);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .prev { left: 20px; }
+    .next { right: 20px; }
+
+    /* Carousel Dots */
+    .carousel-dots {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.3s;
+      border: 2px solid transparent;
+    }
+    .dot.active {
+      background: var(--white);
+      transform: scale(1.1);
+    }
+
+    /* PRODUCTS GRID */
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+    .section-header {
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-header h2 {
+      color: var(--text-dark);
+      font-size: 1.8rem;
+      font-weight: 600;
+    }
+    .products {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 2rem;
+    }
+
+    /* Product Card */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      transition: transform 0.3s, box-shadow 0.3s;
+      display: flex;
+      flex-direction: column;
+    }
+    .card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 30px rgba(0, 0, 0, 0.15);
+    }
+    .card img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      transition: transform 0.3s;
+    }
+    .card:hover img {
+      transform: scale(1.05);
+    }
+    .card-body {
+      padding: 1.5rem;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .card-price {
+      font-size: 1.25rem;
+      color: var(--secondary);
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    .card-btn {
+      width: 100%;
+      padding: 0.75rem;
+      margin-top: auto;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+    .card-btn:hover {
+      background: linear-gradient(135deg, var(--primary-dark), var(--accent));
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      z-index: 100;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 2.5rem;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      position: relative;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+      transition: transform 0.3s;
+    }
+    .modal-content:hover {
+      transform: translateY(-2px);
+    }
+    .close-modal {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: transparent;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-light);
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+    .close-modal:hover { color: var(--primary); }
+
+    .modal-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .modal-header h3 {
+      font-size: 1.5rem;
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+    }
+    .modal-header p {
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+
+    /* Form Inputs */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.95rem;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 8px rgba(79, 70, 229, 0.2);
+    }
+
+    /* Buttons in Modal */
+    .modal-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .btn-submit {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff;
+      padding: 0.75rem;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+    .btn-submit:hover {
+      background: linear-gradient(135deg, var(--primary-dark), var(--accent));
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .btn-switch {
+      background: transparent;
+      color: var(--text-light);
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-switch:hover {
+      text-decoration: underline;
+      color: var(--primary);
+    }
+
+    /* TOAST NOTIFICATION */
+    #toast {
+      visibility: hidden;
+      min-width: 250px;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 16px;
+      position: fixed;
+      z-index: 200;
+      right: 30px;
+      bottom: 30px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    #toast.show {
+      visibility: visible;
+      animation: slideIn 0.5s, fadeOut 0.5s 2.5s;
+    }
+    @keyframes slideIn {
+      from { bottom: 0; opacity: 0; }
+      to { bottom: 30px; opacity: 1; }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* FOOTER */
+    footer {
+      background: var(--text-dark);
+      color: #94a3b8;
+      text-align: center;
+      padding: 2rem;
+      margin-top: 4rem;
+      font-size: 0.95rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <div class="nav">
+    <h2 onclick="location.reload()"><i class="fas fa-book"></i> EduMarket</h2>
+    <div class="nav-links" id="nav-links"></div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Stationery & Textbooks</h1>
+    <p>Get the best learning materials and school supplies delivered to you.</p>
+  </div>
+
+  <!-- CAROUSEL -->
+  <div class="carousel-wrapper">
+    <div class="carousel-container">
+      <div class="carousel-slides" id="carousel-slides">
+        <!-- Slide 1 -->
+        <div class="carousel-slide">
+          <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80" alt="Back to School">
+          <div class="carousel-caption">
+            <h3>Back to School Offers</h3>
+            <p>Get 20% off on all textbooks and stationery kits this season.</p>
+          </div>
+        </div>
+        <!-- Slide 2 -->
+        <div class="carousel-slide">
+          <img src="https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80" alt="Art Supplies">
+          <div class="carousel-caption">
+            <h3>Premium Art Supplies</h3>
+            <p>Unleash creativity with our new range of colors and brushes.</p>
+          </div>
+        </div>
+        <!-- Slide 3 -->
+        <div class="carousel-slide">
+          <img src="https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80" alt="Digital Learning">
+          <div class="carousel-caption">
+            <h3>Digital Learning Aids</h3>
+            <p>Scientific calculators and educational tablets now in stock.</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Navigation Buttons -->
+      <button class="carousel-btn prev" onclick="changeSlide(-1)">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <button class="carousel-btn next" onclick="changeSlide(1)">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      
+      <!-- Dots Container -->
+      <div class="carousel-dots" id="carousel-dots"></div>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="container" id="products-section">
+    <div class="section-header">
+      <h2>Available Stock</h2>
+      <button class="nav-btn" onclick="openAddProduct()"><i class="fas fa-plus"></i> Add Product</button>
+    </div>
+    <div class="products" id="products-container"></div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-content">
+      <button class="close-modal" onclick="closeModal()">&times;</button>
+      <div class="modal-header">
+        <h3 id="modal-title">Welcome Back</h3>
+        <p id="modal-desc">Login to continue</p>
+      </div>
+      <form onsubmit="event.preventDefault(); submitForm();">
+        <!-- Auth Fields -->
+        <div class="form-group" id="username-group" style="display:none;">
+          <input class="form-input" id="username" placeholder="Full Name" />
+        </div>
+        <div class="form-group" id="email-group">
+          <input class="form-input" id="email" placeholder="Email Address" type="email" />
+        </div>
+        <div class="form-group" id="password-group">
+          <input class="form-input" id="password" type="password" placeholder="Password" />
+        </div>
+        <!-- Product Fields -->
+        <div class="form-group" id="prod-group" style="display:none;">
+          <input class="form-input" id="prod-name" placeholder="Product Name (e.g. Math Book)" />
+          <input class="form-input" id="prod-price" placeholder="Price (KES)" type="number" style="margin-top:10px;" />
+          <input class="form-input" id="prod-img" placeholder="Image URL (Optional)" style="margin-top:10px;" />
+        </div>
+        <!-- M-Pesa Field -->
+        <div class="form-group" id="mpesa-group" style="display:none;">
+          <input class="form-input" id="mpesa-phone" placeholder="M-Pesa Phone (e.g. 2547...)" type="tel" />
+        </div>
+        <div class="modal-buttons">
+          <button type="submit" class="btn-submit" id="btn-submit-text">Login</button>
+          <button type="button" class="btn-switch" id="switch-btn" onclick="toggleAuthMode()"></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast">Message</div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>&copy; 2026 EduMarket. All rights reserved.</p>
+  </footer>
+
+  <script>
+const API = "http://127.0.0.1:8080";
+let mode = "login"; // login, signup, addProduct, pay
+let currentProductId = null;
+let products = [];
+
+/* INITIALIZATION */
+document.addEventListener('DOMContentLoaded', () => {
+    loadProducts();
+    updateNavbar();
+    initCarousel(); // Initialize Carousel
+});
+
+/* TOAST SYSTEM */
+function showToast(message, type = 'info') {
+    const toast = document.getElementById("toast");
+    toast.innerText = message;
+    toast.style.backgroundColor = type === 'error' ? '#ef4444' : type === 'success' ? '#22c55e' : '#4f46e5';
+    toast.className = "show";
+    setTimeout(() => {
+        toast.className = toast.className.replace("show", "");
+    }, 3000);
+}
+
+/* NAVBAR LOGIC */
+function updateNavbar() {
+    const nav = document.getElementById("nav-links");
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user) {
+        nav.innerHTML = `
+            <div class="user-badge"><i class="fas fa-user-circle"></i> ${user.username || user.email}</div>
+            <button class="nav-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        `;
+    } else {
+        nav.innerHTML = `
+            <button class="nav-btn" onclick="openLogin()">Login</button>
+            <button class="nav-btn primary" onclick="openSignup()">Sign Up</button>
+        `;
+    }
+}
+
+function logout() {
+    localStorage.removeItem("user");
+    updateNavbar();
+    showToast("Logged out successfully", "info");
+}
+
+/* PRODUCTS LOGIC */
+async function loadProducts() {
+    try {
+        const res = await fetch(`${API}/products`);
+        products = await res.json();
+        renderProducts();
+    } catch (error) {
+        console.error("Error loading products:", error);
+        showToast("Could not connect to server", "error");
+    }
+}
+
+function renderProducts() {
+    const container = document.getElementById("products-container");
+    container.innerHTML = "";
+    if (products.length === 0) {
+        container.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>No products available.</p>";
+        return;
+    }
+    products.forEach(p => {
+        container.innerHTML += `
+            <div class="card">
+                <img src="${p.img}" alt="${p.name}">
+                <div class="card-body">
+                    <h3 class="card-title">${p.name}</h3>
+                    <p class="card-price">KES ${p.price}</p>
+                    <button class="card-btn" onclick="buy(${p.id})">Buy Now</button>
+                </div>
+            </div>
+        `;
+    });
+}
+
+function buy(productId) {
+    if (!localStorage.getItem("user")) {
+        showToast("Please login to buy items", "error");
+        openLogin();
+        return;
+    }
+    currentProductId = productId;
+    openPayModal();
+}
+
+/* CAROUSEL LOGIC */
+let slideIndex = 1;
+let autoSlideInterval;
+
+function initCarousel() {
+    const slides = document.querySelectorAll(".carousel-slide");
+    const dotsContainer = document.getElementById("carousel-dots");
+
+    slides.forEach((_, index) => {
+        const dot = document.createElement("span");
+        dot.classList.add("dot");
+        if (index === 0) dot.classList.add("active");
+        dot.onclick = () => currentSlide(index + 1);
+        dotsContainer.appendChild(dot);
+    });
+
+    showSlides(slideIndex);
+
+    autoSlideInterval = setInterval(() => { plusSlides(1); }, 5000);
+}
+
+function plusSlides(n) { showSlides(slideIndex += n); }
+function currentSlide(n) { showSlides(slideIndex = n); }
+
+function showSlides(n) {
+    const slides = document.querySelectorAll(".carousel-slide");
+    const dots = document.querySelectorAll(".dot");
+    if (n > slides.length) slideIndex = 1;
+    if (n < 1) slideIndex = slides.length;
+
+    const carousel = document.getElementById("carousel-slides");
+    if (carousel) {
+        carousel.style.transform = `translateX(-${(slideIndex - 1) * 100}%)`;
+    }
+
+    dots.forEach(dot => dot.classList.remove("active"));
+    if (dots[slideIndex - 1]) dots[slideIndex - 1].classList.add("active");
+}
+
+function changeSlide(n) { plusSlides(n); }
+
+/* MODAL CONTROLS */
+function resetModal() {
+    document.getElementById("username-group").style.display = "none";
+    document.getElementById("prod-group").style.display = "none";
+    document.getElementById("mpesa-group").style.display = "none";
+    document.getElementById("email-group").style.display = "block";
+    document.getElementById("password-group").style.display = "block";
+
+    document.querySelectorAll('.form-input').forEach(i => i.value = "");
+
+    document.getElementById("switch-btn").style.display = "block";
+    document.getElementById("switch-btn").innerText = "";
+}
+
+function openLogin() {
+    mode = "login";
+    resetModal();
+    document.getElementById("modal-title").innerText = "Welcome Back";
+    document.getElementById("modal-desc").innerText = "Login to continue shopping";
+    document.getElementById("btn-submit-text").innerText = "Login";
+    document.getElementById("switch-btn").innerText = "Don't have an account? Sign Up";
+    document.getElementById("switch-btn").onclick = openSignup;
+    document.getElementById("modal").style.display = "flex";
+}
+
+function openSignup() {
+    mode = "signup";
+    resetModal();
+    document.getElementById("modal-title").innerText = "Create Account";
+    document.getElementById("modal-desc").innerText = "Join EduMarket today";
+    document.getElementById("username-group").style.display = "block";
+    document.getElementById("btn-submit-text").innerText = "Sign Up";
+    document.getElementById("switch-btn").innerText = "Already have an account? Login";
+    document.getElementById("switch-btn").onclick = openLogin;
+    document.getElementById("modal").style.display = "flex";
+}
+
+function openPayModal() {
+    mode = "pay";
+    resetModal();
+    document.getElementById("modal-title").innerText = "M-Pesa Payment";
+    document.getElementById("modal-desc").innerText = "Enter phone number to pay";
+    document.getElementById("email-group").style.display = "none";
+    document.getElementById("password-group").style.display = "none";
+    document.getElementById("switch-btn").style.display = "none";
+    document.getElementById("mpesa-group").style.display = "block";
+    document.getElementById("btn-submit-text").innerText = "Pay Now";
+    document.getElementById("modal").style.display = "flex";
+}
+
+function openAddProduct() {
+    if (!localStorage.getItem("user")) {
+        showToast("You must be logged in to add products", "error");
+        openLogin();
+        return;
+    }
+    mode = "addProduct";
+    resetModal();
+    document.getElementById("modal-title").innerText = "Add New Product";
+    document.getElementById("modal-desc").innerText = "Fill in product details";
+    document.getElementById("email-group").style.display = "none";
+    document.getElementById("password-group").style.display = "none";
+    document.getElementById("switch-btn").style.display = "none";
+    document.getElementById("prod-group").style.display = "block";
+    document.getElementById("btn-submit-text").innerText = "Add Product";
+    document.getElementById("modal").style.display = "flex";
+}
+
+function closeModal() { document.getElementById("modal").style.display = "none"; }
+
+/* FORM SUBMISSION */
+async function submitForm() {
+    if (mode === "login") {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        fetch(`${API}/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.user) {
+                localStorage.setItem("user", JSON.stringify(data.user));
+                showToast("Login successful!", "success");
+                closeModal();
+                updateNavbar();
+            } else {
+                showToast(data.message || "Login failed", "error");
+            }
+        })
+        .catch(() => showToast("Could not connect to server", "error"));
+
+    } else if (mode === "signup") {
+        const username = document.getElementById("username").value;
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        fetch(`${API}/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password }),
+        })
+        .then(res => res.json())
+        .then(data => {
+            showToast(data.message, data.message && data.message.includes("successful") ? "success" : "error");
+            if (data.message && data.message.includes("successful")) openLogin();
+        });
+
+    } else if (mode === "addProduct") {
+        const name = document.getElementById("prod-name").value;
+        const price = document.getElementById("prod-price").value;
+        let img = document.getElementById("prod-img").value;
+        if (!name || !price) { showToast("Name and Price are required", "error"); return; }
+        if (!img) img = `https://source.unsplash.com/collection/education/300x150?sig=${Math.floor(Math.random() * 1000)}`;
+        fetch(`${API}/add_product`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, price, img }),
+        })
+        .then(res => res.json())
+        .then(data => {
+            showToast("Product added!", "success");
+            closeModal();
+            loadProducts();
+        });
+
+    } else if (mode === "pay") {
+        const phone = document.getElementById("mpesa-phone").value;
+        if (!phone) { showToast("Enter phone number", "error"); return; }
+        fetch(`${API}/pay`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: phone, product_id: currentProductId }),
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) { showToast("Check your phone for M-Pesa prompt", "success"); closeModal(); }
+            else { showToast(data.error || "Payment failed", "error"); }
+        });
+    }
+}
+
+/* Utility Functions */
+function toggleAuthMode() {
+    if (mode === "login") openSignup();
+    else openLogin();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+/* src/css/Loader.css */
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 2rem;
+}
+
+/* The three spinning rings */
+.loader-rings {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.loader-rings div {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.loader-rings div:nth-child(1) {
+  inset: 0;
+  border-top-color: #00d4aa;
+  animation: spin 1s linear infinite;
+}
+
+.loader-rings div:nth-child(2) {
+  inset: 10px;
+  border-right-color: #00b8d9;
+  animation: spin 1.4s linear infinite reverse;
+}
+
+.loader-rings div:nth-child(3) {
+  inset: 20px;
+  border-bottom-color: #f5a623;
+  animation: spin 1.8s linear infinite;
+}
+
+/* Center dot */
+.loader-rings div:nth-child(4) {
+  inset: 33px;
+  background: #00d4aa;
+  border: none;
+  animation: pulse 1s ease-in-out infinite;
+  box-shadow: 0 0 10px #00d4aa;
+}
+
+/* Scanning bar below the rings */
+.loader-bar {
+  width: 160px;
+  height: 2px;
+  background: rgba(0, 212, 170, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.loader-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #00d4aa, #00b8d9);
+  border-radius: 2px;
+  animation: scan 1.4s ease-in-out infinite;
+  box-shadow: 0 0 6px #00d4aa;
+}
+
+/* Loading text */
+.loader-text {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #00d4aa;
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes scan    { 0% { width: 0%; margin-left: 0%; } 50% { width: 60%; margin-left: 20%; } 100% { width: 0%; margin-left: 100%; } }
+@keyframes blink   { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }

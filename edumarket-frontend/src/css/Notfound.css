@@ -1,0 +1,105 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.notfound-wrapper {
+  position: relative;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #1f1f2e, #0b0b12 70%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  font-family: "Poppins", sans-serif;
+}
+
+.notfound-card {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  background: rgba(20, 20, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 50px 35px;
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(0, 255, 200, 0.08);
+  backdrop-filter: blur(10px);
+  width: 90%;
+  max-width: 500px;
+}
+
+.error-code {
+  font-size: 7rem;
+  font-weight: 800;
+  color: #00ffd5;
+  text-shadow: 0 0 20px rgba(0, 255, 213, 0.35);
+  letter-spacing: 4px;
+}
+
+.error-title {
+  font-size: 2rem;
+  color: #ffffff;
+  margin-top: 10px;
+  margin-bottom: 15px;
+}
+
+.error-text {
+  color: #b8b8c7;
+  font-size: 1rem;
+  line-height: 1.7;
+  margin-bottom: 30px;
+}
+
+.button-group {
+  display: flex;
+  justify-content: center;
+}
+
+.home-btn {
+  text-decoration: none;
+  background: linear-gradient(135deg, #00ffd5, #00b3ff);
+  color: #0b0b12;
+  padding: 12px 28px;
+  border-radius: 12px;
+  font-weight: 700;
+  transition: 0.3s ease;
+  box-shadow: 0 0 20px rgba(0, 255, 213, 0.2);
+}
+
+.home-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 0 25px rgba(0, 255, 213, 0.35);
+}
+
+.stars,
+.stars2 {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background-repeat: repeat;
+  background-position: 0 0;
+  animation: moveStars 90s linear infinite;
+  opacity: 0.25;
+}
+
+.stars {
+  background-image: radial-gradient(#ffffff 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+.stars2 {
+  background-image: radial-gradient(#00ffd5 1px, transparent 1px);
+  background-size: 100px 100px;
+  animation-duration: 140s;
+  opacity: 0.12;
+}
+
+@keyframes moveStars {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-200px);
+  }
+}

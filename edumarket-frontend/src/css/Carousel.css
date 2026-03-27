@@ -1,0 +1,18 @@
+.carousel-inner img {
+  border-radius: 15px;
+  filter: brightness(0.8);
+  max-height: 400px;
+  object-fit: cover;
+  padding-top: 10px;
+}
+
+.carousel-caption {
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  padding: 10px 20px;
+}
+
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+  filter: invert(1);
+}
