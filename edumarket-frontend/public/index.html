@@ -6,13 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Google Fonts -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
     rel="stylesheet"
   />
   <!-- Font Awesome for Icons -->
   <link
     rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
   />
 
   <style>
@@ -148,7 +148,7 @@
     .carousel-slides {
       display: flex;
       transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-      height: 400px; /* Fixed height for consistency */
+      height: 400px;
     }
     .carousel-slide {
       min-width: 100%;
@@ -451,15 +451,401 @@
       to { opacity: 1; }
     }
 
-    /* FOOTER */
-    footer {
-      background: var(--text-dark);
-      color: #94a3b8;
-      text-align: center;
-      padding: 2rem;
+    /* ============================================
+       PROFESSIONAL FOOTER STYLES
+       ============================================ */
+    .professional-footer {
+      position: relative;
+      background: linear-gradient(to bottom, #1e293b, #0f172a);
+      border-top: 1px solid #334155;
       margin-top: 4rem;
-      font-size: 0.95rem;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    
+    .footer-glow-top {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50%;
+      height: 1px;
+      background: linear-gradient(to right, transparent, rgba(79, 70, 229, 0.5), transparent);
+    }
+    
+    .footer-glow-orb {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 24rem;
+      height: 8rem;
+      background: rgba(79, 70, 229, 0.15);
+      filter: blur(3rem);
+    }
+    
+    .footer-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 4rem 2rem 2rem;
+    }
+    
+    .footer-top {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 3rem;
+      padding-bottom: 3rem;
+      border-bottom: 1px solid rgba(100, 116, 139, 0.3);
+    }
+    
+    @media (min-width: 1024px) {
+      .footer-top {
+        grid-template-columns: 1.2fr 2fr;
+        gap: 2rem;
+      }
+    }
+    
+    /* Brand Section */
+    .footer-brand {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    
+    .footer-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      transition: all 0.3s;
+      width: fit-content;
+    }
+    
+    .footer-logo:hover {
+      transform: scale(1.02);
+    }
+    
+    .footer-logo-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      background: var(--primary);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.3s;
+    }
+    
+    .footer-logo:hover .footer-logo-icon {
+      background: var(--accent);
+    }
+    
+    .footer-logo-icon i {
+      color: white;
+      font-size: 1.25rem;
+    }
+    
+    .footer-logo-text {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: white;
+    }
+    
+    .footer-logo-text span {
+      color: var(--primary);
+    }
+    
+    .footer-description {
+      color: #94a3b8;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      max-width: 28rem;
+    }
+    
+    /* Newsletter */
+    .newsletter-title {
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 0.75rem;
+    }
+    
+    .newsletter-form {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .newsletter-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.75rem 1rem;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      color: white;
+      font-size: 0.875rem;
+      transition: all 0.3s;
+    }
+    
+    .newsletter-input::placeholder {
+      color: #64748b;
+    }
+    
+    .newsletter-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    }
+    
+    .newsletter-btn {
+      padding: 0.75rem 1.25rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .newsletter-btn:hover {
+      background: var(--accent);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+    
+    .newsletter-privacy {
+      color: #64748b;
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    
+    /* Links Grid */
+    .footer-links-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+    }
+    
+    @media (min-width: 768px) {
+      .footer-links-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    
+    .footer-column h4 {
+      color: white;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+    }
+    
+    .footer-column ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .footer-column li {
+      margin-bottom: 0.75rem;
+    }
+    
+    .footer-column a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 0.875rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: color 0.3s;
+    }
+    
+    .footer-column a i {
+      font-size: 0.6rem;
+      color: #475569;
+      transition: color 0.3s;
+    }
+    
+    .footer-column a:hover {
+      color: var(--primary);
+    }
+    
+    .footer-column a:hover i {
+      color: var(--primary);
+    }
+    
+    .hiring-badge {
+      margin-left: 0.25rem;
+      padding: 0.125rem 0.5rem;
+      font-size: 0.65rem;
+      background: rgba(79, 70, 229, 0.2);
+      color: var(--primary);
+      border-radius: 9999px;
+    }
+    
+    /* Stats Section */
+    .footer-stats {
+      padding: 2.5rem 0;
+      border-bottom: 1px solid rgba(100, 116, 139, 0.3);
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+    }
+    
+    @media (min-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+    
+    /* Bottom Section */
+    .footer-bottom {
+      padding-top: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    
+    @media (min-width: 768px) {
+      .footer-bottom {
+        flex-direction: row;
+        justify-content: space-between;
+      }
+    }
+    
+    .footer-copyright {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    @media (min-width: 640px) {
+      .footer-copyright {
+        flex-direction: row;
+        gap: 1.5rem;
+      }
+    }
+    
+    .copyright-text {
+      color: #64748b;
+      font-size: 0.875rem;
+    }
+    
+    .secure-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(100, 116, 139, 0.3);
+      border-radius: 0.5rem;
+    }
+    
+    .secure-badge i {
+      color: var(--success);
+      font-size: 0.875rem;
+    }
+    
+    .secure-badge span {
+      color: #94a3b8;
+      font-size: 0.75rem;
+    }
+    
+    /* Payment Methods */
+    .payment-methods {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .payment-label {
+      color: #64748b;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .payment-icons {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .payment-icon {
+      width: 2.5rem;
+      height: 1.5rem;
+      background: rgba(30, 41, 59, 0.8);
+      border-radius: 0.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.75rem;
+    }
+    
+    /* Social Links */
+    .social-links {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .social-label {
+      color: #64748b;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: none;
+    }
+    
+    @media (min-width: 640px) {
+      .social-label {
+        display: block;
+      }
+    }
+    
+    .social-link {
+      width: 2.25rem;
+      height: 2.25rem;
+      background: rgba(30, 41, 59, 0.8);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+    
+    .social-link:hover {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .social-link i {
+      font-size: 0.875rem;
     }
   </style>
 </head>
@@ -496,9 +882,9 @@
             <p>Unleash creativity with our new range of colors and brushes.</p>
           </div>
         </div>
-        <!-- Slide 3 -->
+        <!-- Slide 3 - UPDATED IMAGE -->
         <div class="carousel-slide">
-          <img src="https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80" alt="Digital Learning">
+          <img src="https://unsplash.com/photos/graphical-user-interface-7_bz84zOU7g" alt="Digital Learning">
           <div class="carousel-caption">
             <h3>Digital Learning Aids</h3>
             <p>Scientific calculators and educational tablets now in stock.</p>
@@ -568,9 +954,153 @@
   <!-- TOAST -->
   <div id="toast">Message</div>
 
-  <!-- FOOTER -->
-  <footer>
-    <p>&copy; 2026 EduMarket. All rights reserved.</p>
+  <!-- PROFESSIONAL FOOTER -->
+  <footer class="professional-footer">
+    <!-- Decorative Elements -->
+    <div class="footer-glow-top"></div>
+    <div class="footer-glow-orb"></div>
+    
+    <div class="footer-main">
+      <!-- Top Section -->
+      <div class="footer-top">
+        <!-- Brand Column -->
+        <div class="footer-brand">
+          <a href="#" class="footer-logo">
+            <div class="footer-logo-icon">
+              <i class="fas fa-graduation-cap"></i>
+            </div>
+            <span class="footer-logo-text">Edu<span>Market</span></span>
+          </a>
+          
+          <p class="footer-description">
+            Empowering learners worldwide with premium educational resources. Discover textbooks, stationery, and learning tools to accelerate your education journey.
+          </p>
+          
+          <!-- Newsletter -->
+          <div>
+            <p class="newsletter-title">Subscribe to our newsletter</p>
+            <form class="newsletter-form" onsubmit="event.preventDefault(); showToast('Thank you for subscribing!', 'success');">
+              <input type="email" class="newsletter-input" placeholder="Enter your email" required>
+              <button type="submit" class="newsletter-btn">Subscribe</button>
+            </form>
+            <p class="newsletter-privacy">Join 50,000+ learners. No spam, unsubscribe anytime.</p>
+          </div>
+        </div>
+        
+        <!-- Links Grid -->
+        <div class="footer-links-grid">
+          <!-- Products -->
+          <div class="footer-column">
+            <h4>Products</h4>
+            <ul>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Textbooks</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Stationery</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Art Supplies</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Digital Tools</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Bundles</a></li>
+            </ul>
+          </div>
+          
+          <!-- Company -->
+          <div class="footer-column">
+            <h4>Company</h4>
+            <ul>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> About Us</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Careers <span class="hiring-badge">Hiring</span></a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Blog</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Press Kit</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Partners</a></li>
+            </ul>
+          </div>
+          
+          <!-- Resources -->
+          <div class="footer-column">
+            <h4>Resources</h4>
+            <ul>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Help Center</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Community</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Tutorials</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Documentation</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> API Reference</a></li>
+            </ul>
+          </div>
+          
+          <!-- Legal -->
+          <div class="footer-column">
+            <h4>Legal</h4>
+            <ul>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Terms of Service</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Privacy Policy</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Cookie Policy</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Licensing</a></li>
+              <li><a href="#"><i class="fas fa-chevron-right"></i> Refund Policy</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Stats Section -->
+      <div class="footer-stats">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-number">50K+</div>
+            <div class="stat-label">Active Learners</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number">2,500+</div>
+            <div class="stat-label">Products Available</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number">180+</div>
+            <div class="stat-label">Countries Served</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-number">4.9/5</div>
+            <div class="stat-label">Average Rating</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Bottom Section -->
+      <div class="footer-bottom">
+        <!-- Copyright -->
+        <div class="footer-copyright">
+          <p class="copyright-text">© 2026 EduMarket. All rights reserved.</p>
+          <div class="secure-badge">
+            <i class="fas fa-shield-halved"></i>
+            <span>Secure Payments</span>
+          </div>
+        </div>
+        
+        <!-- Payment Methods -->
+        <div class="payment-methods">
+          <span class="payment-label">We accept:</span>
+          <div class="payment-icons">
+            <div class="payment-icon" title="M-Pesa">
+              <i class="fas fa-mobile-screen"></i>
+            </div>
+            <div class="payment-icon" title="Visa">
+              <i class="fab fa-cc-visa"></i>
+            </div>
+            <div class="payment-icon" title="Mastercard">
+              <i class="fab fa-cc-mastercard"></i>
+            </div>
+            <div class="payment-icon" title="PayPal">
+              <i class="fab fa-cc-paypal"></i>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Social Links -->
+        <div class="social-links">
+          <span class="social-label">Follow us:</span>
+          <a href="#" class="social-link" title="Twitter"><i class="fab fa-x-twitter"></i></a>
+          <a href="#" class="social-link" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+          <a href="#" class="social-link" title="YouTube"><i class="fab fa-youtube"></i></a>
+          <a href="#" class="social-link" title="Instagram"><i class="fab fa-instagram"></i></a>
+        </div>
+      </div>
+    </div>
   </footer>
 
   <script>
@@ -583,7 +1113,7 @@ let products = [];
 document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
     updateNavbar();
-    initCarousel(); // Initialize Carousel
+    initCarousel();
 });
 
 /* TOAST SYSTEM */
@@ -680,7 +1210,6 @@ function initCarousel() {
     });
 
     showSlides(slideIndex);
-
     autoSlideInterval = setInterval(() => { plusSlides(1); }, 5000);
 }
 
