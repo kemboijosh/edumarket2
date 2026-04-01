@@ -266,14 +266,28 @@
       transform: translateY(-8px);
       box-shadow: 0 20px 30px rgba(0, 0, 0, 0.15);
     }
-    .card img {
+    .card-img-wrapper {
       width: 100%;
       height: 180px;
+      overflow: hidden;
+      background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-img-wrapper img {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
       transition: transform 0.3s;
     }
-    .card:hover img {
+    .card:hover .card-img-wrapper img {
       transform: scale(1.05);
+    }
+    .card-img-wrapper .img-fallback {
+      font-size: 3rem;
+      color: var(--primary);
+      opacity: 0.5;
     }
     .card-body {
       padding: 1.5rem;
@@ -406,6 +420,10 @@
       background: linear-gradient(135deg, var(--primary-dark), var(--accent));
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     .btn-switch {
       background: transparent;
       color: var(--text-light);
@@ -449,6 +467,22 @@
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
+    }
+
+    /* Loading Spinner */
+    .loading-spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     /* ============================================
@@ -868,7 +902,7 @@
       <div class="carousel-slides" id="carousel-slides">
         <!-- Slide 1 -->
         <div class="carousel-slide">
-          <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80" alt="Back to School">
+          <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1400&h=400&fit=crop&q=80" alt="Back to School">
           <div class="carousel-caption">
             <h3>Back to School Offers</h3>
             <p>Get 20% off on all textbooks and stationery kits this season.</p>
@@ -876,15 +910,15 @@
         </div>
         <!-- Slide 2 -->
         <div class="carousel-slide">
-          <img src="https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80" alt="Art Supplies">
+          <img src="https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=1400&h=400&fit=crop&q=80" alt="Art Supplies">
           <div class="carousel-caption">
             <h3>Premium Art Supplies</h3>
             <p>Unleash creativity with our new range of colors and brushes.</p>
           </div>
         </div>
-        <!-- Slide 3 - UPDATED IMAGE -->
+        <!-- Slide 3 -->
         <div class="carousel-slide">
-          <img src="<img src="https://images.unsplash.com/photo-1588702547923-7093a6c3ba33?w=1400&q=80" alt="Digital Learning">" alt="Digital Learning">
+          <img src="https://images.unsplash.com/photo-1588702547923-7093a6c3ba33?w=1400&h=400&fit=crop&q=80" alt="Digital Learning">
           <div class="carousel-caption">
             <h3>Digital Learning Aids</h3>
             <p>Scientific calculators and educational tablets now in stock.</p>
@@ -1065,7 +1099,7 @@
       <div class="footer-bottom">
         <!-- Copyright -->
         <div class="footer-copyright">
-          <p class="copyright-text">© 2026 EduMarket. All rights reserved.</p>
+          <p class="copyright-text">&copy; 2026 EduMarket. All rights reserved.</p>
           <div class="secure-badge">
             <i class="fas fa-shield-halved"></i>
             <span>Secure Payments</span>
@@ -1105,7 +1139,7 @@
 
   <script>
 const API = "";
-let mode = "login"; // login, signup, addProduct, pay
+let mode = "login";
 let currentProductId = null;
 let products = [];
 
@@ -1154,11 +1188,12 @@ function logout() {
 async function loadProducts() {
     try {
         const res = await fetch(`${API}/products`);
+        if (!res.ok) throw new Error("Server error");
         products = await res.json();
         renderProducts();
     } catch (error) {
         console.error("Error loading products:", error);
-        showToast("Could not connect to server", "error");
+        showToast("Could not load products", "error");
     }
 }
 
@@ -1166,16 +1201,20 @@ function renderProducts() {
     const container = document.getElementById("products-container");
     container.innerHTML = "";
     if (products.length === 0) {
-        container.innerHTML = "<p style='grid-column: 1/-1; text-align:center;'>No products available.</p>";
+        container.innerHTML = "<p style='grid-column: 1/-1; text-align:center; color: #64748b;'>No products available yet.</p>";
         return;
     }
     products.forEach(p => {
+        const imgHtml = p.img
+            ? `<img src="${p.img}" alt="${p.name}" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-book-open img-fallback\\'></i>'">`
+            : `<i class="fas fa-book-open img-fallback"></i>`;
+
         container.innerHTML += `
             <div class="card">
-                <img src="${p.img}" alt="${p.name}">
+                <div class="card-img-wrapper">${imgHtml}</div>
                 <div class="card-body">
                     <h3 class="card-title">${p.name}</h3>
-                    <p class="card-price">KES ${p.price}</p>
+                    <p class="card-price">KES ${Number(p.price).toLocaleString()}</p>
                     <button class="card-btn" onclick="buy(${p.id})">Buy Now</button>
                 </div>
             </div>
@@ -1231,7 +1270,11 @@ function showSlides(n) {
     if (dots[slideIndex - 1]) dots[slideIndex - 1].classList.add("active");
 }
 
-function changeSlide(n) { plusSlides(n); }
+function changeSlide(n) {
+    clearInterval(autoSlideInterval);
+    plusSlides(n);
+    autoSlideInterval = setInterval(() => { plusSlides(1); }, 5000);
+}
 
 /* MODAL CONTROLS */
 function resetModal() {
@@ -1245,6 +1288,8 @@ function resetModal() {
 
     document.getElementById("switch-btn").style.display = "block";
     document.getElementById("switch-btn").innerText = "";
+    document.getElementById("btn-submit-text").disabled = false;
+    document.getElementById("btn-submit-text").innerText = "";
 }
 
 function openLogin() {
@@ -1305,74 +1350,103 @@ function closeModal() { document.getElementById("modal").style.display = "none";
 
 /* FORM SUBMISSION */
 async function submitForm() {
+    const btn = document.getElementById("btn-submit-text");
+    btn.disabled = true;
+
     if (mode === "login") {
-        const email = document.getElementById("email").value;
+        const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value;
-        fetch(`${API}/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
-        })
-        .then(res => res.json())
-        .then(data => {
+        if (!email || !password) { showToast("Fill in all fields", "error"); btn.disabled = false; return; }
+
+        try {
+            const res = await fetch(`${API}/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            const data = await res.json();
             if (data.user) {
                 localStorage.setItem("user", JSON.stringify(data.user));
                 showToast("Login successful!", "success");
                 closeModal();
                 updateNavbar();
             } else {
-                showToast(data.message || "Login failed", "error");
+                showToast(data.message || "Invalid email or password", "error");
             }
-        })
-        .catch(() => showToast("Could not connect to server", "error"));
+        } catch () {
+            showToast("Could not connect to server", "error");
+        }
 
     } else if (mode === "signup") {
-        const username = document.getElementById("username").value;
-        const email = document.getElementById("email").value;
+        const username = document.getElementById("username").value.trim();
+        const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value;
-        fetch(`${API}/signup`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, email, password }),
-        })
-        .then(res => res.json())
-        .then(data => {
-            showToast(data.message, data.message && data.message.includes("successful") ? "success" : "error");
-            if (data.message && data.message.includes("successful")) openLogin();
-        });
+        if (!username || !email || !password) { showToast("Fill in all fields", "error"); btn.disabled = false; return; }
+
+        try {
+            const res = await fetch(`${API}/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast("Signup successful! Please login.", "success");
+                openLogin();
+            } else {
+                showToast(data.message || "Signup failed", "error");
+            }
+        } catch () {
+            showToast("Could not connect to server", "error");
+        }
 
     } else if (mode === "addProduct") {
-        const name = document.getElementById("prod-name").value;
+        const name = document.getElementById("prod-name").value.trim();
         const price = document.getElementById("prod-price").value;
-        let img = document.getElementById("prod-img").value;
-        if (!name || !price) { showToast("Name and Price are required", "error"); return; }
-        if (!img) img = `https://source.unsplash.com/collection/education/300x150?sig=${Math.floor(Math.random() * 1000)}`;
-        fetch(`${API}/add_product`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, price, img }),
-        })
-        .then(res => res.json())
-        .then(data => {
-            showToast("Product added!", "success");
-            closeModal();
-            loadProducts();
-        });
+        let img = document.getElementById("prod-img").value.trim();
+        if (!name || !price) { showToast("Name and Price are required", "error"); btn.disabled = false; return; }
+        if (!img) img = `https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80`;
+
+        try {
+            const res = await fetch(`${API}/add_product`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, price: Number(price), img }),
+            });
+            if (res.ok) {
+                showToast("Product added!", "success");
+                closeModal();
+                loadProducts();
+            } else {
+                showToast("Failed to add product", "error");
+            }
+        } catch () {
+            showToast("Could not connect to server", "error");
+        }
 
     } else if (mode === "pay") {
-        const phone = document.getElementById("mpesa-phone").value;
-        if (!phone) { showToast("Enter phone number", "error"); return; }
-        fetch(`${API}/pay`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone: phone, product_id: currentProductId }),
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) { showToast("Check your phone for M-Pesa prompt", "success"); closeModal(); }
-            else { showToast(data.error || "Payment failed", "error"); }
-        });
+        const phone = document.getElementById("mpesa-phone").value.trim();
+        if (!phone) { showToast("Enter phone number", "error"); btn.disabled = false; return; }
+
+        try {
+            const res = await fetch(`${API}/pay`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phone: phone, product_id: currentProductId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast("Check your phone for M-Pesa prompt", "success");
+                closeModal();
+            } else {
+                showToast(data.error || "Payment failed", "error");
+            }
+        } catch () {
+            showToast("Could not connect to server", "error");
+        }
     }
+
+    btn.disabled = false;
 }
 
 /* Utility Functions */
@@ -1380,6 +1454,6 @@ function toggleAuthMode() {
     if (mode === "login") openSignup();
     else openLogin();
 }
-</script>
+  </script>
 </body>
 </html>
