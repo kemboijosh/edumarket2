@@ -2,7 +2,7 @@ import base64
 import requests
 import json
 import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import os
 
@@ -51,7 +51,7 @@ def generate_password():
     password = base64.b64encode(data_to_encode.encode()).decode("utf-8")
     return password, timestamp
 
-# --- ROUTES ---
+# --- API ROUTES ---
 @app.route('/products', methods=['GET'])
 def get_products():
     return jsonify(products)
@@ -87,7 +87,6 @@ def add_product():
     products.append({"id": new_id, "name": name, "price": float(price), "img": img})
     return jsonify({"message": "Product added"}), 201
 
-# --- MPESA PAYMENT ---
 @app.route('/pay', methods=['POST'])
 def initiate_payment():
     data = request.json
@@ -97,29 +96,19 @@ def initiate_payment():
     if not phone:
         return jsonify({"error": "Phone number is required"}), 400
 
-    # Get product price
     product = next((p for p in products if p['id'] == product_id), None)
     if not product:
         return jsonify({"error": "Product not found"}), 404
     
     amount = product['price']
-
-    # 1. Get Access Token
     access_token = get_mpesa_access_token()
     if not access_token:
         return jsonify({"error": "Failed to connect to payment provider"}), 500
 
-    # 2. Generate Password & Timestamp
     password, timestamp = generate_password()
-
-    # 3. Prepare STK Push Payload
     callback_url = f"{NGROK_URL}/callback"
     
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-    
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     payload = {
         "BusinessShortCode": SHORTCODE,
         "Password": password,
@@ -134,11 +123,9 @@ def initiate_payment():
         "TransactionDesc": f"Payment for {product['name']}"
     }
 
-    # 4. Send Request to Safaricom
     try:
         response = requests.post(STK_PUSH_URL, json=payload, headers=headers)
         res_data = response.json()
-        
         print("Safaricom Response:", res_data)
 
         if "ResponseCode" in res_data and res_data["ResponseCode"] == "0":
@@ -154,16 +141,25 @@ def initiate_payment():
     except Exception as e:
         print("Error during STK Push:", str(e))
         return jsonify({"error": "Server error processing payment"}), 500
+
 @app.route('/callback', methods=['POST'])
 def callback():
-    """Safaricom STK Push callback"""
     data = request.json
     print("------- CALLBACK RECEIVED -------")
     print(json.dumps(data, indent=4))
-    # ResultCode 0 = success
     return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
+# --- SINGLE PAGE APP ROUTE ---
+@app.route('/')
+def home_page():
+    return render_template('index.html')
+
+@app.route('/<path:any_path>')
+def catch_all(any_path):
+    """Redirect all other routes to index.html for SPA"""
+    return render_template('index.html')
+
+# --- RUN APP ---
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
