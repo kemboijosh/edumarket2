@@ -1,8 +1,13 @@
 import os
+import base64
+import requests
+from datetime import datetime
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timezone
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import select
+from datetime import timezone
 
 app = Flask(__name__)
 CORS(app)
@@ -17,6 +22,17 @@ if not DATABASE_URL:
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+# ─── M-PESA DARAJA CONFIGURATION ───────────────────────────────────────────────
+# Get these from https://developer.safaricom.co.ke
+MPESA_CONSUMER_KEY    = os.environ.get('u7GrXbRCyrmk4xZpIcnPZ42iZXzGSlp3WRA2BBaJpva5y86J', '')
+MPESA_CONSUMER_SECRET = os.environ.get('qHl3shBg4AJeL57fbGle2AUPMxTXnxGyJaUErSoZdLo6ocH28SHrr8kh1af69ttd', '')
+MPESA_SHORTCODE       = os.environ.get('MPESA_SHORTCODE', '174379')       # Test shortcode
+MPESA_PASSKEY         = os.environ.get('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919')
+MPESA_CALLBACK_URL    = os.environ.get('MPESA_CALLBACK_URL', '')          # e.g. https://yourdomain.com/mpesa/callback
+# Use sandbox for testing, production for live
+MPESA_ENVIRONMENT     = os.environ.get('MPESA_ENVIRONMENT', 'sandbox')   # 'sandbox' or 'production'
+# ────────────────────────────────────────────────────────────────────────────────
 
 
 class Product(db.Model):
@@ -38,6 +54,120 @@ class User(db.Model):
     def to_dict(self):
         return {'id': self.id, 'username': self.username, 'email': self.email}
 
+
+class Transaction(db.Model):
+    """Stores M-Pesa payment records for tracking."""
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(20), nullable=False)
+    product_id = db.Column(db.Integer, nullable=False)
+    product_name = db.Column(db.String(200))
+    amount = db.Column(db.Float, nullable=False)
+    mpesa_receipt = db.Column(db.String(50))       # M-Pesa confirmation code
+    merchant_request_id = db.Column(db.String(100))
+    checkout_request_id = db.Column(db.String(100))
+    status = db.Column(db.String(20), default='pending')  # pending, success, failed, cancelled
+    result_code = db.Column(db.Integer)
+    result_desc = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+# ─── M-PESA HELPER FUNCTIONS ───────────────────────────────────────────────────
+
+def get_mpesa_access_token():
+    """Fetch OAuth access token from Daraja API."""
+    if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
+        return None, "M-Pesa credentials not configured. Set MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET environment variables."
+    
+    base_url = "https://sandbox.safaricom.co.ke" if MPESA_ENVIRONMENT == "sandbox" else "https://api.safaricom.co.ke"
+    url = f"{base_url}/oauth/v1/generate?grant_type=client_credentials"
+    
+    try:
+        resp = requests.get(url, auth=(MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET), timeout=30)
+        resp.raise_for_status()
+        token = resp.json().get('access_token')
+        if not token:
+            return None, "No access token in response"
+        return token, None
+    except requests.exceptions.RequestException as e:
+        return None, f"Failed to get M-Pesa token: {str(e)}"
+
+
+def generate_stk_password():
+    """Generate the base64 password for STK Push (ShortCode + Passkey + Timestamp)."""
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    raw = f"{MPESA_SHORTCODE}{MPESA_PASSKEY}{timestamp}"
+    password = base64.b64encode(raw.encode()).decode()
+    return password, timestamp
+
+
+def normalize_phone(phone):
+    """Convert phone to format 254XXXXXXXXX."""
+    phone = phone.strip().replace(' ', '').replace('-', '').replace('+', '')
+    if phone.startswith('0'):
+        phone = '254' + phone[1:]
+    elif phone.startswith('7') or phone.startswith('1'):
+        phone = '254' + phone
+    # Ensure it's 12 digits starting with 254
+    if not phone.startswith('254') or len(phone) != 12:
+        return None
+    return phone
+
+
+def initiate_stk_push(phone, amount, account_ref, description):
+    """
+    Call Daraja STK Push API to prompt user's phone.
+    Returns (success: bool, response_data: dict, error: str)
+    """
+    phone = normalize_phone(phone)
+    if not phone:
+        return False, {}, "Invalid phone number. Use format like 254712345678 or 0712345678"
+    
+    if amount < 1:
+        return False, {}, "Amount must be at least KES 1"
+    
+    token, err = get_mpesa_access_token()
+    if err:
+        return False, {}, err
+    
+    password, timestamp = generate_stk_password()
+    
+    base_url = "https://sandbox.safaricom.co.ke" if MPESA_ENVIRONMENT == "sandbox" else "https://api.safaricom.co.ke"
+    url = f"{base_url}/mpesa/stkpush/v1/processrequest"
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "BusinessShortCode": MPESA_SHORTCODE,
+        "Password": password,
+        "Timestamp": timestamp,
+        "TransactionType": "CustomerPayBillOnline",
+        "Amount": int(amount),  # M-Pesa requires integer
+        "PartyA": phone,
+        "PartyB": MPESA_SHORTCODE,
+        "PhoneNumber": phone,
+        "CallBackURL": MPESA_CALLBACK_URL,
+        "AccountReference": account_ref[:12],  # Max 12 chars
+        "TransactionDesc": description[:13]      # Max 13 chars
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        data = resp.json()
+        
+        if resp.status_code == 200 and data.get('ResponseCode') == '0':
+            return True, data, None
+        else:
+            error_msg = data.get('errorMessage', data.get('ResponseDescription', 'STK Push failed'))
+            return False, data, error_msg
+            
+    except requests.exceptions.RequestException as e:
+        return False, {}, f"Network error calling M-Pesa: {str(e)}"
+
+
+# ─── ROUTES ────────────────────────────────────────────────────────────────────
 
 HTML_PAGE = r'''<!DOCTYPE html>
 <html lang="en">
@@ -94,7 +224,7 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 .card-btn{width:100%;padding:.75rem;margin-top:auto;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;border:none;cursor:pointer;border-radius:8px;font-weight:600;font-size:.95rem;transition:all .3s}
 .card-btn:hover{background:linear-gradient(135deg,var(--primary-dark),var(--accent));box-shadow:0 4px 12px rgba(0,0,0,.2)}
 .modal-overlay{display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);justify-content:center;align-items:center;animation:fadeIn .3s}
-.modal-content{background:#fff;padding:2.5rem;border-radius:16px;width:100%;max-width:400px;margin:1rem;position:relative;box-shadow:0 10px 20px rgba(0,0,0,.15)}
+.modal-content{background:#fff;padding:2.5rem;border-radius:16px;width:100%;max-width:420px;margin:1rem;position:relative;box-shadow:0 10px 20px rgba(0,0,0,.15)}
 .close-modal{position:absolute;top:1rem;right:1rem;background:0 0;border:none;font-size:1.5rem;color:var(--text-light);cursor:pointer;transition:color .3s}
 .close-modal:hover{color:var(--primary)}
 .modal-header{text-align:center;margin-bottom:1.5rem}
@@ -109,13 +239,18 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 .btn-submit:disabled{opacity:.6;cursor:not-allowed}
 .btn-switch{background:0 0;color:var(--text-light);border:none;cursor:pointer;font-size:.9rem;font-family:Poppins,sans-serif}
 .btn-switch:hover{text-decoration:underline;color:var(--primary)}
-#toast{visibility:hidden;min-width:250px;background-color:#333;color:#fff;text-align:center;border-radius:8px;padding:16px;position:fixed;z-index:200;right:30px;bottom:30px;font-size:.9rem;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.payment-summary{background:var(--bg-light);border-radius:10px;padding:1rem;margin-bottom:1rem;border:1px solid #e2e8f0}
+.payment-summary .item-name{font-weight:600;font-size:1rem;margin-bottom:.25rem}
+.payment-summary .item-price{color:var(--secondary);font-weight:700;font-size:1.15rem}
+.payment-hint{font-size:.8rem;color:var(--text-light);margin-top:.5rem;display:flex;align-items:center;gap:6px}
+.payment-hint i{color:var(--success)}
+#toast{visibility:hidden;min-width:280px;background-color:#333;color:#fff;text-align:center;border-radius:10px;padding:16px 20px;position:fixed;z-index:200;right:30px;bottom:30px;font-size:.9rem;box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;gap:10px}
 #toast.show{visibility:visible;animation:slideIn .5s,fadeOut .5s 2.5s}
 @keyframes slideIn{from{bottom:0;opacity:0}to{bottom:30px;opacity:1}}
 @keyframes fadeOut{from{opacity:1}to{opacity:0}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-radius:50%;border-top-color:#fff;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+.loading-spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-radius:50%;border-top-color:#fff;animation:spin .6s linear infinite;vertical-align:middle}
 .loading-state{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;color:var(--text-light)}
 .spinner{width:40px;height:40px;border:4px solid #e2e8f0;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
 .error-state{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:1rem;color:var(--text-light);text-align:center}
@@ -229,6 +364,11 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 <h3 id="modal-title">Welcome Back</h3>
 <p id="modal-desc">Login to continue</p>
 </div>
+<div id="payment-summary-box" style="display:none" class="payment-summary">
+<div class="item-name" id="pay-item-name"></div>
+<div class="item-price" id="pay-item-price"></div>
+<div class="payment-hint"><i class="fas fa-shield-halved"></i> <span>Secured by M-Pesa STK Push</span></div>
+</div>
 <form onsubmit="event.preventDefault(); submitForm();">
 <div class="form-group" id="username-group" style="display:none">
 <input class="form-input" id="username" placeholder="Full Name"/>
@@ -245,7 +385,8 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 <input class="form-input" id="prod-img" placeholder="Image URL (Optional)" style="margin-top:10px"/>
 </div>
 <div class="form-group" id="mpesa-group" style="display:none">
-<input class="form-input" id="mpesa-phone" placeholder="M-Pesa Phone (e.g. 2547...)" type="tel"/>
+<input class="form-input" id="mpesa-phone" placeholder="M-Pesa Phone (e.g. 0712345678)" type="tel"/>
+<div class="payment-hint" style="margin-top:8px"><i class="fas fa-info-circle"></i> <span>Enter the M-Pesa registered number. An STK push will be sent to your phone.</span></div>
 </div>
 <div class="modal-buttons">
 <button type="submit" class="btn-submit" id="btn-submit-text">Login</button>
@@ -342,28 +483,29 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 var API="";
 var mode="login";
 var currentProductId=null;
+var currentProduct=null;
 var products=[];
 document.addEventListener("DOMContentLoaded",function(){updateNavbar();initCarousel();loadProducts();document.getElementById("modal").addEventListener("click",function(e){if(e.target.id==="modal")closeModal()});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.getElementById("modal").style.display==="flex")closeModal()})});
 function scrollToProducts(){document.getElementById("products-section").scrollIntoView({behavior:"smooth"})}
-function showToast(m,t){var toast=document.getElementById("toast");toast.innerText=m;if(t==="error")toast.style.backgroundColor="#ef4444";else if(t==="success")toast.style.backgroundColor="#22c55e";else toast.style.backgroundColor="#4f46e5";toast.className="show";clearTimeout(toast._tid);toast._tid=setTimeout(function(){toast.className=""},3000)}
+function showToast(m,t){var toast=document.getElementById("toast");var icon="";if(t==="error")icon='<i class="fas fa-circle-xmark"></i> ';else if(t==="success")icon='<i class="fas fa-circle-check"></i> ';else icon='<i class="fas fa-circle-info"></i> ';toast.innerHTML=icon+m;if(t==="error")toast.style.backgroundColor="#ef4444";else if(t==="success")toast.style.backgroundColor="#22c55e";else toast.style.backgroundColor="#4f46e5";toast.className="show";clearTimeout(toast._tid);toast._tid=setTimeout(function(){toast.className=""},3500)}
 function updateNavbar(){var nav=document.getElementById("nav-links");var user=JSON.parse(localStorage.getItem("user"));if(user){nav.innerHTML='<div class="user-badge"><i class="fas fa-user-circle"></i> '+(user.username||user.email)+'</div><button class="nav-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>'}else{nav.innerHTML='<button class="nav-btn" onclick="openLogin()">Login</button><button class="nav-btn primary" onclick="openSignup()">Sign Up</button>'}}
 function logout(){localStorage.removeItem("user");updateNavbar();showToast("Logged out successfully","info")}
 function loadProducts(){var c=document.getElementById("products-container");c.innerHTML='<div class="loading-state"><div class="spinner"></div><span>Loading products...</span></div>';fetch(API+"/products").then(function(r){if(!r.ok)throw new Error("Server error "+r.status);return r.json()}).then(function(d){products=d;renderProducts()}).catch(function(){c.innerHTML='<div class="error-state"><i class="fas fa-exclamation-triangle"></i><span>Could not load products</span><button class="retry-btn" onclick="loadProducts()"><i class="fas fa-redo"></i> Try Again</button></div>'})}
-function renderProducts(){var c=document.getElementById("products-container");c.innerHTML="";if(products.length===0){c.innerHTML='<p style="grid-column:1/-1;text-align:center;color:#64748b">No products available yet.</p>';return}for(var i=0;i<products.length;i++){var p=products[i];var n=p.name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");var img=p.img?'<img src="'+p.img+'" alt="'+n+'" onerror="this.parentElement.innerHTML=\'<i class=fas fa-book-open img-fallback></i>\'">':'<i class="fas fa-book-open img-fallback"></i>';var card=document.createElement("div");card.className="card";card.innerHTML='<div class="card-img-wrapper">'+img+'</div><div class="card-body"><h3 class="card-title">'+n+'</h3><p class="card-price">KES '+Number(p.price).toLocaleString()+'</p><button class="card-btn">Buy Now</button></div>';(function(pid){card.querySelector(".card-btn").addEventListener("click",function(){buy(pid)})})(p.id);c.appendChild(card)}}
-function buy(pid){if(!localStorage.getItem("user")){showToast("Please login to buy items","error");openLogin();return}currentProductId=pid;openPayModal()}
+function renderProducts(){var c=document.getElementById("products-container");c.innerHTML="";if(products.length===0){c.innerHTML='<p style="grid-column:1/-1;text-align:center;color:#64748b">No products available yet.</p>';return}for(var i=0;i<products.length;i++){var p=products[i];var n=p.name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");var img=p.img?'<img src="'+p.img+'" alt="'+n+'" onerror="this.parentElement.innerHTML=\'<i class=\\\'fas fa-book-open img-fallback\\\'></i>\'">':'<i class="fas fa-book-open img-fallback"></i>';var card=document.createElement("div");card.className="card";card.innerHTML='<div class="card-img-wrapper">'+img+'</div><div class="card-body"><h3 class="card-title">'+n+'</h3><p class="card-price">KES '+Number(p.price).toLocaleString()+'</p><button class="card-btn">Buy Now</button></div>';(function(pid,prod){card.querySelector(".card-btn").addEventListener("click",function(){buy(pid,prod)})})(p.id,p);c.appendChild(card)}}
+function buy(pid,prod){if(!localStorage.getItem("user")){showToast("Please login to buy items","error");openLogin();return}currentProductId=pid;currentProduct=prod;openPayModal()}
 var slideIndex=1,autoSlideInterval;
 function initCarousel(){var slides=document.querySelectorAll(".carousel-slide");var dc=document.getElementById("carousel-dots");for(var i=0;i<slides.length;i++){var d=document.createElement("span");d.className="dot";if(i===0)d.className="dot active";d.onclick=(function(idx){return function(){goToSlide(idx+1)}})(i);dc.appendChild(d)}showSlide(slideIndex);autoSlideInterval=setInterval(function(){advanceSlide(1)},5000)}
 function advanceSlide(n){showSlide(slideIndex+=n)}
 function goToSlide(n){showSlide(slideIndex=n)}
 function showSlide(n){var slides=document.querySelectorAll(".carousel-slide");var dots=document.querySelectorAll(".dot");if(n>slides.length)slideIndex=1;if(n<1)slideIndex=slides.length;var c=document.getElementById("carousel-slides");if(c)c.style.transform="translateX(-"+((slideIndex-1)*100)+"%)";for(var i=0;i<dots.length;i++)dots[i].className="dot";if(dots[slideIndex-1])dots[slideIndex-1].className="dot active"}
 function changeSlide(n){clearInterval(autoSlideInterval);advanceSlide(n);autoSlideInterval=setInterval(function(){advanceSlide(1)},5000)}
-function resetModal(){document.getElementById("username-group").style.display="none";document.getElementById("prod-group").style.display="none";document.getElementById("mpesa-group").style.display="none";document.getElementById("email-group").style.display="block";document.getElementById("password-group").style.display="block";var inputs=document.querySelectorAll(".form-input");for(var i=0;i<inputs.length;i++)inputs[i].value="";document.getElementById("switch-btn").style.display="block";document.getElementById("switch-btn").innerText="";var btn=document.getElementById("btn-submit-text");btn.disabled=false;btn.innerText=""}
+function resetModal(){document.getElementById("username-group").style.display="none";document.getElementById("prod-group").style.display="none";document.getElementById("mpesa-group").style.display="none";document.getElementById("payment-summary-box").style.display="none";document.getElementById("email-group").style.display="block";document.getElementById("password-group").style.display="block";var inputs=document.querySelectorAll(".form-input");for(var i=0;i<inputs.length;i++)inputs[i].value="";document.getElementById("switch-btn").style.display="block";document.getElementById("switch-btn").innerText="";var btn=document.getElementById("btn-submit-text");btn.disabled=false;btn.innerText=""}
 function openLogin(){mode="login";resetModal();document.getElementById("modal-title").innerText="Welcome Back";document.getElementById("modal-desc").innerText="Login to continue shopping";document.getElementById("btn-submit-text").innerText="Login";document.getElementById("switch-btn").innerText="Don't have an account? Sign Up";document.getElementById("switch-btn").onclick=openSignup;document.getElementById("modal").style.display="flex"}
 function openSignup(){mode="signup";resetModal();document.getElementById("modal-title").innerText="Create Account";document.getElementById("modal-desc").innerText="Join EduMarket today";document.getElementById("username-group").style.display="block";document.getElementById("btn-submit-text").innerText="Sign Up";document.getElementById("switch-btn").innerText="Already have an account? Login";document.getElementById("switch-btn").onclick=openLogin;document.getElementById("modal").style.display="flex"}
-function openPayModal(){mode="pay";resetModal();document.getElementById("modal-title").innerText="M-Pesa Payment";document.getElementById("modal-desc").innerText="Enter phone number to pay";document.getElementById("email-group").style.display="none";document.getElementById("password-group").style.display="none";document.getElementById("switch-btn").style.display="none";document.getElementById("mpesa-group").style.display="block";document.getElementById("btn-submit-text").innerText="Pay Now";document.getElementById("modal").style.display="flex"}
+function openPayModal(){mode="pay";resetModal();document.getElementById("modal-title").innerText="M-Pesa Payment";document.getElementById("modal-desc").innerText="You will receive an STK push on your phone";document.getElementById("email-group").style.display="none";document.getElementById("password-group").style.display="none";document.getElementById("switch-btn").style.display="none";document.getElementById("mpesa-group").style.display="block";if(currentProduct){document.getElementById("payment-summary-box").style.display="block";document.getElementById("pay-item-name").innerText=currentProduct.name;document.getElementById("pay-item-price").innerText="KES "+Number(currentProduct.price).toLocaleString()}document.getElementById("btn-submit-text").innerText="Send STK Push";document.getElementById("modal").style.display="flex"}
 function openAddProduct(){if(!localStorage.getItem("user")){showToast("You must be logged in to add products","error");openLogin();return}mode="addProduct";resetModal();document.getElementById("modal-title").innerText="Add New Product";document.getElementById("modal-desc").innerText="Fill in product details";document.getElementById("email-group").style.display="none";document.getElementById("password-group").style.display="none";document.getElementById("switch-btn").style.display="none";document.getElementById("prod-group").style.display="block";document.getElementById("btn-submit-text").innerText="Add Product";document.getElementById("modal").style.display="flex"}
 function closeModal(){document.getElementById("modal").style.display="none"}
-function submitForm(){var btn=document.getElementById("btn-submit-text");btn.disabled=true;if(mode==="login"){var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerText="Logging in...";fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:password})}).then(function(r){return r.json()}).then(function(data){if(data.user){localStorage.setItem("user",JSON.stringify(data.user));showToast("Login successful!","success");closeModal();updateNavbar()}else{showToast(data.message||"Invalid email or password","error");btn.innerText="Login";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Login";btn.disabled=false})}else if(mode==="signup"){var username=document.getElementById("username").value.trim();var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!username||!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerText="Creating account...";fetch(API+"/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username,email:email,password:password})}).then(function(r){return{json:r.json(),ok:r.ok}}).then(function(resp){return resp.json.then(function(data){if(resp.ok){showToast("Signup successful! Please login.","success");openLogin()}else{showToast(data.message||"Signup failed","error");btn.innerText="Sign Up";btn.disabled=false}})}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Sign Up";btn.disabled=false})}else if(mode==="addProduct"){var name=document.getElementById("prod-name").value.trim();var price=document.getElementById("prod-price").value;var img=document.getElementById("prod-img").value.trim();if(!name||!price){showToast("Name and Price are required","error");btn.disabled=false;return}if(!img)img="https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80";btn.innerText="Adding...";fetch(API+"/add_product",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,price:Number(price),img:img})}).then(function(r){return r.json()}).then(function(){showToast("Product added!","success");closeModal();loadProducts()}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Add Product";btn.disabled=false})}else if(mode==="pay"){var phone=document.getElementById("mpesa-phone").value.trim();if(!phone){showToast("Enter phone number","error");btn.disabled=false;return}btn.innerText="Processing...";fetch(API+"/pay",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:phone,product_id:currentProductId})}).then(function(r){return r.json()}).then(function(data){if(data.success){showToast("Check your phone for M-Pesa prompt","success");closeModal()}else{showToast(data.error||"Payment failed","error");btn.innerText="Pay Now";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Pay Now";btn.disabled=false})}}
+function submitForm(){var btn=document.getElementById("btn-submit-text");btn.disabled=true;if(mode==="login"){var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Logging in...';fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:password})}).then(function(r){return r.json()}).then(function(data){if(data.user){localStorage.setItem("user",JSON.stringify(data.user));showToast("Login successful!","success");closeModal();updateNavbar()}else{showToast(data.message||"Invalid email or password","error");btn.innerText="Login";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Login";btn.disabled=false})}else if(mode==="signup"){var username=document.getElementById("username").value.trim();var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!username||!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Creating account...';fetch(API+"/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username,email:email,password:password})}).then(function(r){return{json:r.json(),ok:r.ok}}).then(function(resp){return resp.json.then(function(data){if(resp.ok){showToast("Signup successful! Please login.","success");openLogin()}else{showToast(data.message||"Signup failed","error");btn.innerText="Sign Up";btn.disabled=false}})}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Sign Up";btn.disabled=false})}else if(mode==="addProduct"){var name=document.getElementById("prod-name").value.trim();var price=document.getElementById("prod-price").value;var img=document.getElementById("prod-img").value.trim();if(!name||!price){showToast("Name and Price are required","error");btn.disabled=false;return}if(!img)img="https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80";btn.innerHTML='<span class="loading-spinner"></span> Adding...';fetch(API+"/add_product",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,price:Number(price),img:img})}).then(function(r){return r.json()}).then(function(){showToast("Product added!","success");closeModal();loadProducts()}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Add Product";btn.disabled=false})}else if(mode==="pay"){var phone=document.getElementById("mpesa-phone").value.trim();if(!phone){showToast("Enter phone number","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Sending STK Push...';fetch(API+"/pay",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:phone,product_id:currentProductId})}).then(function(r){return r.json()}).then(function(data){if(data.success){showToast(data.message||"STK Push sent! Check your phone.","success");closeModal()}else{showToast(data.error||"Payment failed","error");btn.innerHTML="Send STK Push";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerHTML="Send STK Push";btn.disabled=false})}}
 function toggleAuthMode(){if(mode==="login")openSignup();else openLogin()}
 </script>
 </body>
@@ -380,7 +522,12 @@ def health():
     try:
         db.session.execute(db.text('SELECT 1'))
         product_count = Product.query.count()
-        return jsonify({"status": "healthy", "database": "connected", "products": product_count})
+        return jsonify({
+            "status": "healthy",
+            "database": "connected",
+            "products": product_count,
+            "mpesa_configured": bool(MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET)
+        })
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
@@ -442,18 +589,149 @@ def login():
 
 @app.route('/pay', methods=['POST'])
 def pay():
+    """Real M-Pesa STK Push payment endpoint."""
     try:
         data = request.get_json()
         phone = data.get('phone', '')
         product_id = data.get('product_id')
-        if not phone or len(phone) < 10:
-            return jsonify({"success": False, "error": "Enter a valid phone number"})
+
+        if not phone or len(phone.strip()) < 10:
+            return jsonify({"success": False, "error": "Enter a valid phone number (e.g. 0712345678)"})
+
         product = Product.query.get(product_id)
         if not product:
             return jsonify({"success": False, "error": "Product not found"})
-        return jsonify({"success": True, "message": "M-Pesa prompt sent to " + phone + " for " + product.name + " (KES " + str(product.price) + ")"})
+
+        # ── Check if M-Pesa credentials are configured ──
+        if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
+            return jsonify({
+                "success": False,
+                "error": "M-Pesa is not configured. Ask the admin to set MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET environment variables."
+            })
+
+        # ── Initiate real STK Push ──
+        account_ref = f"EDU{product_id}"
+        description = f"{product.name[:13]}"
+
+        success, stk_data, error = initiate_stk_push(
+            phone=phone,
+            amount=product.price,
+            account_ref=account_ref,
+            description=description
+        )
+
+        if not success:
+            return jsonify({"success": False, "error": error})
+
+        # ── Save transaction to database ──
+        txn = Transaction(
+            phone=normalize_phone(phone) or phone,
+            product_id=product_id,
+            product_name=product.name,
+            amount=product.price,
+            merchant_request_id=stk_data.get('MerchantRequestID'),
+            checkout_request_id=stk_data.get('CheckoutRequestID'),
+            status='pending'
+        )
+        db.session.add(txn)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"STK Push sent to {phone}. Enter your M-Pesa PIN to pay KES {int(product.price)} for {product.name}.",
+            "checkout_request_id": stk_data.get('CheckoutRequestID'),
+            "merchant_request_id": stk_data.get('MerchantRequestID')
+        })
+
     except Exception as e:
+        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/mpesa/callback', methods=['POST'])
+def mpesa_callback():
+    """
+    Daraja calls this URL when the user completes/cancels the STK Push.
+    You MUST set MPESA_CALLBACK_URL to your deployed app's URL + '/mpesa/callback'
+    e.g. https://yourapp.onrender.com/mpesa/callback
+    """
+    try:
+        data = request.get_json(force=True)
+        
+        # STK Push callback structure
+        stk_callback = data.get('stkCallback', {})
+        merchant_request_id = stk_callback.get('MerchantRequestID')
+        checkout_request_id = stk_callback.get('CheckoutRequestID')
+        result_code = stk_callback.get('ResultCode')
+        result_desc = stk_callback.get('ResultDesc')
+
+        # Find the pending transaction
+        txn = Transaction.query.filter_by(checkout_request_id=checkout_request_id).first()
+        
+        if txn:
+            txn.result_code = result_code
+            txn.result_desc = result_desc
+            
+            if result_code == 0:
+                # Payment successful - extract M-Pesa receipt
+                callback_metadata = stk_callback.get('CallbackMetadata', {})
+                items = callback_metadata.get('Item', [])
+                for item in items:
+                    if item.get('Name') == 'MpesaReceiptNumber':
+                        txn.mpesa_receipt = item.get('Value')
+                    elif item.get('Name') == 'Amount':
+                        txn.amount = item.get('Value')
+                
+                txn.status = 'success'
+                print(f"✅ PAYMENT SUCCESS: {txn.mpesa_receipt} - KES {txn.amount} for {txn.product_name}")
+            elif result_code == 1032:
+                txn.status = 'cancelled'
+                print(f"❌ PAYMENT CANCELLED by user: {txn.product_name}")
+            elif result_code == 1037:
+                txn.status = 'timeout'
+                print(f"⏱️ PAYMENT TIMEOUT: {txn.product_name}")
+            else:
+                txn.status = 'failed'
+                print(f"❌ PAYMENT FAILED ({result_code}): {result_desc} - {txn.product_name}")
+            
+            db.session.commit()
+
+        return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"}), 200
+
+    except Exception as e:
+        print(f"Callback error: {str(e)}")
+        return jsonify({"ResultCode": 1, "ResultDesc": "Rejected"}), 500
+
+
+@app.route('/mpesa/timeout', methods=['POST'])
+def mpesa_timeout():
+    """Called by Daraja when STK Push times out without response."""
+    try:
+        data = request.get_json(force=True)
+        print(f"⏱️ STK Push timeout: {data}")
+        return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"}), 200
+    except:
+        return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"}), 200
+
+
+@app.route('/transactions', methods=['GET'])
+def get_transactions():
+    """View all payment transactions (for admin/debugging)."""
+    try:
+        txns = Transaction.query.order_by(Transaction.created_at.desc()).limit(50).all()
+        return jsonify([{
+            "id": t.id,
+            "phone": t.phone,
+            "product_name": t.product_name,
+            "amount": t.amount,
+            "mpesa_receipt": t.mpesa_receipt,
+            "status": t.status,
+            "result_code": t.result_code,
+            "result_desc": t.result_desc,
+            "created_at": t.created_at.isoformat() if t.created_at else None
+        } for t in txns])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 def seed_products():
@@ -477,7 +755,6 @@ def seed_products():
 with app.app_context():
     db.create_all()
     seed_products()
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
