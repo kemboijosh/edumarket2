@@ -1,18 +1,3 @@
-Since your app is currently built as a "Single Page Application" (all in one file), the easiest way to add an "About Us" page is to hide the home page and show the About page using JavaScript.
-
-Here is the **full, updated `app.py`**.
-
-### What I added:
-1.  **New Page Design:** Added an "About Us" view with a Hero section, Mission statement, and a "Meet the Team" grid.
-2.  **Navigation Logic:** Added a `showPage()` function to switch between the Store and the About page without reloading.
-3.  **Updated Footer:** The "About Us" link in the footer now actually opens the page instead of saying "Coming soon."
-
-### How to use:
-1.  Copy the code below.
-2.  Replace your entire `app.py` with this new version.
-3.  Restart your local app or push to GitHub/Render.
-
-```python
 import os
 import base64
 import requests
@@ -813,4 +798,3 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
-```
