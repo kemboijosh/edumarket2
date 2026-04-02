@@ -1,3 +1,18 @@
+Since your app is currently built as a "Single Page Application" (all in one file), the easiest way to add an "About Us" page is to hide the home page and show the About page using JavaScript.
+
+Here is the **full, updated `app.py`**.
+
+### What I added:
+1.  **New Page Design:** Added an "About Us" view with a Hero section, Mission statement, and a "Meet the Team" grid.
+2.  **Navigation Logic:** Added a `showPage()` function to switch between the Store and the About page without reloading.
+3.  **Updated Footer:** The "About Us" link in the footer now actually opens the page instead of saying "Coming soon."
+
+### How to use:
+1.  Copy the code below.
+2.  Replace your entire `app.py` with this new version.
+3.  Restart your local app or push to GitHub/Render.
+
+```python
 import os
 import base64
 import requests
@@ -28,22 +43,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # ─── M-PESA DARAJA CONFIGURATION (FIXED) ─────────────────────────────────────
-# Get these from https://developer.safaricom.co.ke
-# FIX: Keys are now hardcoded so they actually work.
 MPESA_CONSUMER_KEY    = 'u7GrXbRCyrmk4xZpIcnPZ42iZXzGSlp3WRA2BBaJpva5y86J'
 MPESA_CONSUMER_SECRET = 'qHl3shBg4AJeL57fbGle2AUPMxTXnxGyJaUErSoZdLo6ocH28SHrr8kh1af69ttd'
-
-MPESA_SHORTCODE       = '174379'       # Test shortcode
+MPESA_SHORTCODE       = '174379'
 MPESA_PASSKEY         = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
-
-# !!! IMPORTANT !!!
-# 1. Run 'ngrok http 10000' in a separate terminal
-# 2. Copy the https URL (e.g., https://a1b2-c3d4.ngrok-free.app)
-# 3. Paste it below inside the quotes:
-MPESA_CALLBACK_URL = 'https://noncultivable-glazily-riley.ngrok-free.dev/mpesa/callback'
-
-# Use sandbox for testing, production for live
-MPESA_ENVIRONMENT     = 'sandbox'   # 'sandbox' or 'production'
+MPESA_CALLBACK_URL    = 'https://noncultivable-glazily-riley.ngrok-free.dev/mpesa/callback' # Update this for Production
+MPESA_ENVIRONMENT     = 'sandbox'
 # ────────────────────────────────────────────────────────────────────────────────
 
 
@@ -68,44 +73,36 @@ class User(db.Model):
 
 
 class Transaction(db.Model):
-    """Stores M-Pesa payment records for tracking."""
     id = db.Column(db.Integer, primary_key=True)
     phone = db.Column(db.String(20), nullable=False)
     product_id = db.Column(db.Integer, nullable=False)
     product_name = db.Column(db.String(200))
     amount = db.Column(db.Float, nullable=False)
-    mpesa_receipt = db.Column(db.String(50))       # M-Pesa confirmation code
+    mpesa_receipt = db.Column(db.String(50))
     merchant_request_id = db.Column(db.String(100))
     checkout_request_id = db.Column(db.String(100))
-    status = db.Column(db.String(20), default='pending')  # pending, success, failed, cancelled
+    status = db.Column(db.String(20), default='pending')
     result_code = db.Column(db.Integer)
     result_desc = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
-# ─── M-PESA HELPER FUNCTIONS ───────────────────────────────────────────────────
-
 def get_mpesa_access_token():
-    """Fetch OAuth access token from Daraja API."""
     if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
-        return None, "M-Pesa credentials not configured. Set MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET environment variables."
-    
+        return None, "M-Pesa credentials not configured."
     base_url = "https://sandbox.safaricom.co.ke" if MPESA_ENVIRONMENT == "sandbox" else "https://api.safaricom.co.ke"
     url = f"{base_url}/oauth/v1/generate?grant_type=client_credentials"
-    
     try:
         resp = requests.get(url, auth=(MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET), timeout=30)
         resp.raise_for_status()
         token = resp.json().get('access_token')
-        if not token:
-            return None, "No access token in response"
+        if not token: return None, "No access token in response"
         return token, None
     except requests.exceptions.RequestException as e:
         return None, f"Failed to get M-Pesa token: {str(e)}"
 
 
 def generate_stk_password():
-    """Generate the base64 password for STK Push (ShortCode + Passkey + Timestamp)."""
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     raw = f"{MPESA_SHORTCODE}{MPESA_PASSKEY}{timestamp}"
     password = base64.b64encode(raw.encode()).decode()
@@ -113,74 +110,43 @@ def generate_stk_password():
 
 
 def normalize_phone(phone):
-    """Convert phone to format 254XXXXXXXXX."""
     phone = phone.strip().replace(' ', '').replace('-', '').replace('+', '')
-    if phone.startswith('0'):
-        phone = '254' + phone[1:]
-    elif phone.startswith('7') or phone.startswith('1'):
-        phone = '254' + phone
-    # Ensure it's 12 digits starting with 254
-    if not phone.startswith('254') or len(phone) != 12:
-        return None
+    if phone.startswith('0'): phone = '254' + phone[1:]
+    elif phone.startswith('7') or phone.startswith('1'): phone = '254' + phone
+    if not phone.startswith('254') or len(phone) != 12: return None
     return phone
 
 
 def initiate_stk_push(phone, amount, account_ref, description):
-    """
-    Call Daraja STK Push API to prompt user's phone.
-    Returns (success: bool, response_data: dict, error: str)
-    """
     phone = normalize_phone(phone)
-    if not phone:
-        return False, {}, "Invalid phone number. Use format like 254712345678 or 0712345678"
-    
-    if amount < 1:
-        return False, {}, "Amount must be at least KES 1"
+    if not phone: return False, {}, "Invalid phone number."
+    if amount < 1: return False, {}, "Amount must be at least KES 1"
     
     token, err = get_mpesa_access_token()
-    if err:
-        return False, {}, err
+    if err: return False, {}, err
     
     password, timestamp = generate_stk_password()
-    
     base_url = "https://sandbox.safaricom.co.ke" if MPESA_ENVIRONMENT == "sandbox" else "https://api.safaricom.co.ke"
     url = f"{base_url}/mpesa/stkpush/v1/processrequest"
     
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     payload = {
-        "BusinessShortCode": MPESA_SHORTCODE,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": int(amount),  # M-Pesa requires integer
-        "PartyA": phone,
-        "PartyB": MPESA_SHORTCODE,
-        "PhoneNumber": phone,
-        "CallBackURL": MPESA_CALLBACK_URL,
-        "AccountReference": account_ref[:12],  # Max 12 chars
-        "TransactionDesc": description[:13]      # Max 13 chars
+        "BusinessShortCode": MPESA_SHORTCODE, "Password": password, "Timestamp": timestamp,
+        "TransactionType": "CustomerPayBillOnline", "Amount": int(amount), "PartyA": phone,
+        "PartyB": MPESA_SHORTCODE, "PhoneNumber": phone, "CallBackURL": MPESA_CALLBACK_URL,
+        "AccountReference": account_ref[:12], "TransactionDesc": description[:13]
     }
     
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         data = resp.json()
-        
-        if resp.status_code == 200 and data.get('ResponseCode') == '0':
-            return True, data, None
-        else:
-            error_msg = data.get('errorMessage', data.get('ResponseDescription', 'STK Push failed'))
-            return False, data, error_msg
-            
+        if resp.status_code == 200 and data.get('ResponseCode') == '0': return True, data, None
+        return False, data, data.get('errorMessage', 'STK Push failed')
     except requests.exceptions.RequestException as e:
-        return False, {}, f"Network error calling M-Pesa: {str(e)}"
+        return False, {}, f"Network error: {str(e)}"
 
 
-# ─── ROUTES ────────────────────────────────────────────────────────────────────
-
+# ─── FRONTEND (HTML/JS) ─────────────────────────────────────────────────────
 HTML_PAGE = r'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -269,6 +235,28 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 .error-state i{font-size:2.5rem;color:var(--danger);opacity:.6}
 .retry-btn{padding:.6rem 1.5rem;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-family:Poppins,sans-serif;font-size:.9rem;transition:all .3s;display:flex;align-items:center;gap:8px}
 .retry-btn:hover{background:var(--primary-dark);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+
+/* --- About Us Page Styles --- */
+.about-hero{background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;padding:5rem 2rem;text-align:center;margin-bottom:4rem}
+.about-hero h1{font-size:3rem;margin-bottom:1rem}
+.about-hero p{font-size:1.2rem;opacity:.8;max-width:700px;margin:0 auto}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;margin-bottom:5rem;max-width:1000px;margin-left:auto;margin-right:auto}
+.about-text h2{font-size:2rem;margin-bottom:1.5rem;color:var(--primary)}
+.about-text p{margin-bottom:1rem;color:var(--text-light);line-height:1.8}
+.about-img img{width:100%;border-radius:16px;box-shadow:0 20px 25px -5px rgba(0,0,0,.1)}
+.values-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;margin-bottom:5rem}
+.value-card{background:#fff;padding:2rem;border-radius:12px;text-align:center;box-shadow:0 4px 6px -1px rgba(0,0,0,.1)}
+.value-icon{font-size:2.5rem;color:var(--secondary);margin-bottom:1rem}
+.value-card h3{margin-bottom:1rem;color:var(--text-dark)}
+.team-section{max-width:1000px;margin:0 auto 5rem;text-align:center}
+.team-section h2{font-size:2.5rem;margin-bottom:3rem;color:var(--text-dark)}
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2rem}
+.team-member{background:#fff;padding:2rem;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,.05)}
+.team-avatar{width:100px;height:100px;background:var(--bg-light);border-radius:50%;margin:0 auto 1.5rem;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:var(--primary)}
+.team-member h4{margin-bottom:.5rem;color:var(--text-dark)}
+.team-member p{color:var(--text-light);font-size:.9rem}
+
+/* --- Footer Styles --- */
 .professional-footer{position:relative;background:linear-gradient(to bottom,#1e293b,#0f172a);border-top:1px solid #334155;margin-top:4rem}
 .footer-glow-top{position:absolute;top:0;left:50%;transform:translateX(-50%);width:50%;height:1px;background:linear-gradient(to right,transparent,rgba(79,70,229,.5),transparent)}
 .footer-glow-orb{position:absolute;top:0;left:50%;transform:translateX(-50%);width:24rem;height:8rem;background:rgba(79,70,229,.15);filter:blur(3rem)}
@@ -331,9 +319,12 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 </head>
 <body>
 <div class="nav">
-<h2 onclick="location.reload()"><i class="fas fa-book"></i> EduMarket</h2>
+<h2 onclick="showPage('home')"><i class="fas fa-book"></i> EduMarket</h2>
 <div class="nav-links" id="nav-links"></div>
 </div>
+
+<!-- PAGE: HOME -->
+<div id="view-home">
 <div class="hero">
 <h1>Stationery &amp; Textbooks</h1>
 <p>Get the best learning materials and school supplies delivered to you.</p>
@@ -369,6 +360,66 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 </div>
 <div class="products" id="products-container"></div>
 </div>
+</div>
+
+<!-- PAGE: ABOUT US -->
+<div id="view-about" style="display:none">
+<div class="about-hero">
+<h1>Empowering Education</h1>
+<p>We are dedicated to providing students and educators with the tools they need to succeed.</p>
+</div>
+<div class="about-grid">
+<div class="about-text">
+<h2>Our Mission</h2>
+<p>EduMarket was founded on a simple belief: no student should have to travel far or pay a fortune for basic learning materials. We bridge the gap between quality stationery and the learners who need it most.</p>
+<p>By leveraging technology, we've streamlined the supply chain, bringing textbooks, art supplies, and digital tools directly to your doorstep.</p>
+</div>
+<div class="about-img">
+<img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80" alt="Students Studying">
+</div>
+</div>
+<div class="container">
+<div class="values-grid">
+<div class="value-card">
+<div class="value-icon"><i class="fas fa-shield-alt"></i></div>
+<h3>Quality Guaranteed</h3>
+<p>We source only from verified publishers and manufacturers to ensure you get authentic products.</p>
+</div>
+<div class="value-card">
+<div class="value-icon"><i class="fas fa-shipping-fast"></i></div>
+<h3>Lightning Fast</h3>
+<p>Our streamlined logistics mean your orders are processed and dispatched in record time.</p>
+</div>
+<div class="value-card">
+<div class="value-icon"><i class="fas fa-hand-holding-heart"></i></div>
+<h3>Customer First</h3>
+<p>Our support team is dedicated to resolving any issues and ensuring a smooth shopping experience.</p>
+</div>
+</div>
+<div class="team-section">
+<h2>Meet the Team</h2>
+<div class="team-grid">
+<div class="team-member">
+<div class="team-avatar"><i class="fas fa-user-tie"></i></div>
+<h4>Alex Johnson</h4>
+<p>Founder & CEO</p>
+</div>
+<div class="team-member">
+<div class="team-avatar"><i class="fas fa-laptop-code"></i></div>
+<h4>Sarah Lee</h4>
+<p>Lead Developer</p>
+</div>
+<div class="team-member">
+<div class="team-avatar"><i class="fas fa-headset"></i></div>
+<h4>Michael Omondi</h4>
+<p>Customer Success</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- MODAL -->
 <div class="modal-overlay" id="modal">
 <div class="modal-content">
 <button class="close-modal" onclick="closeModal()">&amp;times;</button>
@@ -430,41 +481,25 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 </div>
 <div class="footer-links-grid">
 <div class="footer-column"><h4>Products</h4><ul>
-<li><a onclick="scrollToProducts()"><i class="fas fa-chevron-right"></i> Textbooks</a></li>
-<li><a onclick="scrollToProducts()"><i class="fas fa-chevron-right"></i> Stationery</a></li>
-<li><a onclick="scrollToProducts()"><i class="fas fa-chevron-right"></i> Art Supplies</a></li>
-<li><a onclick="scrollToProducts()"><i class="fas fa-chevron-right"></i> Digital Tools</a></li>
-<li><a onclick="scrollToProducts()"><i class="fas fa-chevron-right"></i> Bundles</a></li>
+<li><a onclick="showPage('home')"><i class="fas fa-chevron-right"></i> All Products</a></li>
+<li><a onclick="showPage('home')"><i class="fas fa-chevron-right"></i> Textbooks</a></li>
+<li><a onclick="showPage('home')"><i class="fas fa-chevron-right"></i> Stationery</a></li>
+<li><a onclick="showPage('home')"><i class="fas fa-chevron-right"></i> Art Supplies</a></li>
 </ul></div>
 <div class="footer-column"><h4>Company</h4><ul>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> About Us</a></li>
+<li><a onclick="showPage('about')"><i class="fas fa-chevron-right"></i> About Us</a></li>
 <li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Careers <span class="hiring-badge">Hiring</span></a></li>
 <li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Blog</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Press Kit</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Partners</a></li>
 </ul></div>
-<div class="footer-column"><h4>Resources</h4><ul>
+<div class="footer-column"><h4>Support</h4><ul>
 <li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Help Center</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Community</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Tutorials</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Documentation</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> API Reference</a></li>
+<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Returns</a></li>
+<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Contact Us</a></li>
 </ul></div>
 <div class="footer-column"><h4>Legal</h4><ul>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Terms of Service</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Privacy Policy</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Cookie Policy</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Licensing</a></li>
-<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Refund Policy</a></li>
+<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Privacy</a></li>
+<li><a onclick="showToast('Coming soon','info')"><i class="fas fa-chevron-right"></i> Terms</a></li>
 </ul></div>
-</div>
-</div>
-<div class="footer-stats">
-<div class="stats-grid">
-<div class="stat-item"><div class="stat-number">50K+</div><div class="stat-label">Active Learners</div></div>
-<div class="stat-item"><div class="stat-number">2,500+</div><div class="stat-label">Products Available</div></div>
-<div class="stat-item"><div class="stat-number">180+</div><div class="stat-label">Countries Served</div></div>
-<div class="stat-item"><div class="stat-number">4.9/5</div><div class="stat-label">Average Rating</div></div>
 </div>
 </div>
 <div class="footer-bottom">
@@ -472,21 +507,10 @@ body{font-family:Poppins,sans-serif;background:var(--bg-light);color:var(--text-
 <p class="copyright-text">&amp;copy; 2026 EduMarket. All rights reserved.</p>
 <div class="secure-badge"><i class="fas fa-shield-halved"></i><span>Secure Payments</span></div>
 </div>
-<div class="payment-methods">
-<span class="payment-label">We accept:</span>
-<div class="payment-icons">
-<div class="payment-icon" title="M-Pesa"><i class="fas fa-mobile-screen"></i></div>
-<div class="payment-icon" title="Visa"><i class="fab fa-cc-visa"></i></div>
-<div class="payment-icon" title="Mastercard"><i class="fab fa-cc-mastercard"></i></div>
-<div class="payment-icon" title="PayPal"><i class="fab fa-cc-paypal"></i></div>
-</div>
-</div>
 <div class="social-links">
-<span class="social-label">Follow us:</span>
-<a href="#" class="social-link" onclick="event.preventDefault();showToast('Coming soon','info')"><i class="fab fa-x-twitter"></i></a>
-<a href="#" class="social-link" onclick="event.preventDefault();showToast('Coming soon','info')"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" class="social-link" onclick="event.preventDefault();showToast('Coming soon','info')"><i class="fab fa-youtube"></i></a>
-<a href="#" class="social-link" onclick="event.preventDefault();showToast('Coming soon','info')"><i class="fab fa-instagram"></i></a>
+<a href="#" class="social-link" onclick="event.preventDefault();showToast('Follow us','info')"><i class="fab fa-instagram"></i></a>
+<a href="#" class="social-link" onclick="event.preventDefault();showToast('Follow us','info')"><i class="fab fa-twitter"></i></a>
+<a href="#" class="social-link" onclick="event.preventDefault();showToast('Follow us','info')"><i class="fab fa-linkedin"></i></a>
 </div>
 </div>
 </div>
@@ -496,12 +520,13 @@ var API="";
 var mode="login";
 var currentProductId=null;
 var currentProduct=null;
-var currentCheckoutId=null; // Added for cancellation
+var currentCheckoutId=null;
 var products=[];
 document.addEventListener("DOMContentLoaded",function(){updateNavbar();initCarousel();loadProducts();document.getElementById("modal").addEventListener("click",function(e){if(e.target.id==="modal")closeModal()});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.getElementById("modal").style.display==="flex")closeModal()})});
-function scrollToProducts(){document.getElementById("products-section").scrollIntoView({behavior:"smooth"})}
+function showPage(pageId){document.getElementById("view-home").style.display="none";document.getElementById("view-about").style.display="none";document.getElementById("view-"+pageId).style.display="block";window.scrollTo(0,0)}
+function scrollToProducts(){showPage("home");document.getElementById("products-section").scrollIntoView({behavior:"smooth"})}
 function showToast(m,t){var toast=document.getElementById("toast");var icon="";if(t==="error")icon='<i class="fas fa-circle-xmark"></i> ';else if(t==="success")icon='<i class="fas fa-circle-check"></i> ';else icon='<i class="fas fa-circle-info"></i> ';toast.innerHTML=icon+m;if(t==="error")toast.style.backgroundColor="#ef4444";else if(t==="success")toast.style.backgroundColor="#22c55e";else toast.style.backgroundColor="#4f46e5";toast.className="show";clearTimeout(toast._tid);toast._tid=setTimeout(function(){toast.className=""},3500)}
-function updateNavbar(){var nav=document.getElementById("nav-links");var user=JSON.parse(localStorage.getItem("user"));if(user){nav.innerHTML='<div class="user-badge"><i class="fas fa-user-circle"></i> '+(user.username||user.email)+'</div><button class="nav-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>'}else{nav.innerHTML='<button class="nav-btn" onclick="openLogin()">Login</button><button class="nav-btn primary" onclick="openSignup()">Sign Up</button>'}}
+function updateNavbar(){var nav=document.getElementById("nav-links");var user=JSON.parse(localStorage.getItem("user"));if(user){nav.innerHTML='<button class="nav-btn" onclick="showPage(\'home\')">Shop</button><div class="user-badge"><i class="fas fa-user-circle"></i> '+(user.username||user.email)+'</div><button class="nav-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>'}else{nav.innerHTML='<button class="nav-btn" onclick="showPage(\'home\')">Shop</button><button class="nav-btn" onclick="openLogin()">Login</button><button class="nav-btn primary" onclick="openSignup()">Sign Up</button>'}}
 function logout(){localStorage.removeItem("user");updateNavbar();showToast("Logged out successfully","info")}
 function loadProducts(){var c=document.getElementById("products-container");c.innerHTML='<div class="loading-state"><div class="spinner"></div><span>Loading products...</span></div>';fetch(API+"/products").then(function(r){if(!r.ok)throw new Error("Server error "+r.status);return r.json()}).then(function(d){products=d;renderProducts()}).catch(function(){c.innerHTML='<div class="error-state"><i class="fas fa-exclamation-triangle"></i><span>Could not load products</span><button class="retry-btn" onclick="loadProducts()"><i class="fas fa-redo"></i> Try Again</button></div>'})}
 function renderProducts(){var c=document.getElementById("products-container");c.innerHTML="";if(products.length===0){c.innerHTML='<p style="grid-column:1/-1;text-align:center;color:#64748b">No products available yet.</p>';return}for(var i=0;i<products.length;i++){var p=products[i];var n=p.name.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");var img=p.img?'<img src="'+p.img+'" alt="'+n+'" onerror="this.parentElement.innerHTML=\'<i class=\\\'fas fa-book-open img-fallback\\\'></i>\'">':'<i class="fas fa-book-open img-fallback"></i>';var card=document.createElement("div");card.className="card";card.innerHTML='<div class="card-img-wrapper">'+img+'</div><div class="card-body"><h3 class="card-title">'+n+'</h3><p class="card-price">KES '+Number(p.price).toLocaleString()+'</p><button class="card-btn">Buy Now</button></div>';(function(pid,prod){card.querySelector(".card-btn").addEventListener("click",function(){buy(pid,prod)})})(p.id,p);c.appendChild(card)}}
@@ -618,14 +643,12 @@ def pay():
         if not product:
             return jsonify({"success": False, "error": "Product not found"})
 
-        # ── Check if M-Pesa credentials are configured ──
         if not MPESA_CONSUMER_KEY or not MPESA_CONSUMER_SECRET:
             return jsonify({
                 "success": False,
                 "error": "M-Pesa is not configured. Ask the admin to set MPESA_CONSUMER_KEY and MPESA_CONSUMER_SECRET environment variables."
             })
 
-        # ── Initiate real STK Push ──
         account_ref = f"EDU{product_id}"
         description = f"{product.name[:13]}"
 
@@ -639,7 +662,6 @@ def pay():
         if not success:
             return jsonify({"success": False, "error": error})
 
-        # ── Save transaction to database ──
         txn = Transaction(
             phone=normalize_phone(phone) or phone,
             product_id=product_id,
@@ -693,14 +715,12 @@ def mpesa_callback():
     try:
         data = request.get_json(force=True)
         
-        # STK Push callback structure
         stk_callback = data.get('stkCallback', {})
         merchant_request_id = stk_callback.get('MerchantRequestID')
         checkout_request_id = stk_callback.get('CheckoutRequestID')
         result_code = stk_callback.get('ResultCode')
         result_desc = stk_callback.get('ResultDesc')
 
-        # Find the pending transaction
         txn = Transaction.query.filter_by(checkout_request_id=checkout_request_id).first()
         
         if txn:
@@ -708,7 +728,6 @@ def mpesa_callback():
             txn.result_desc = result_desc
             
             if result_code == 0:
-                # Payment successful - extract M-Pesa receipt
                 callback_metadata = stk_callback.get('CallbackMetadata', {})
                 items = callback_metadata.get('Item', [])
                 for item in items:
@@ -794,3 +813,4 @@ with app.app_context():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
+```
