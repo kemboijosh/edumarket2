@@ -12,26 +12,38 @@ from datetime import timezone
 app = Flask(__name__)
 CORS(app)
 
+# ─── DATABASE CONFIGURATION (WINDOWS FIXED) ────────────────────────────────
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+# FIX: If no production URL is found, create a local 'edumarket.db' in the current folder
 if not DATABASE_URL:
-    db_path = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'edumarket.db')
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    db_path = os.path.join(basedir, 'edumarket.db')
     DATABASE_URL = 'sqlite:///' + db_path
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# ─── M-PESA DARAJA CONFIGURATION ───────────────────────────────────────────────
+# ─── M-PESA DARAJA CONFIGURATION (FIXED) ─────────────────────────────────────
 # Get these from https://developer.safaricom.co.ke
-MPESA_CONSUMER_KEY    = os.environ.get('u7GrXbRCyrmk4xZpIcnPZ42iZXzGSlp3WRA2BBaJpva5y86J', '')
-MPESA_CONSUMER_SECRET = os.environ.get('qHl3shBg4AJeL57fbGle2AUPMxTXnxGyJaUErSoZdLo6ocH28SHrr8kh1af69ttd', '')
-MPESA_SHORTCODE       = os.environ.get('MPESA_SHORTCODE', '174379')       # Test shortcode
-MPESA_PASSKEY         = os.environ.get('MPESA_PASSKEY', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919')
-MPESA_CALLBACK_URL    = os.environ.get('MPESA_CALLBACK_URL', '')          # e.g. https://yourdomain.com/mpesa/callback
+# FIX: Keys are now hardcoded so they actually work.
+MPESA_CONSUMER_KEY    = 'u7GrXbRCyrmk4xZpIcnPZ42iZXzGSlp3WRA2BBaJpva5y86J'
+MPESA_CONSUMER_SECRET = 'qHl3shBg4AJeL57fbGle2AUPMxTXnxGyJaUErSoZdLo6ocH28SHrr8kh1af69ttd'
+
+MPESA_SHORTCODE       = '174379'       # Test shortcode
+MPESA_PASSKEY         = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
+
+# !!! IMPORTANT !!!
+# 1. Run 'ngrok http 10000' in a separate terminal
+# 2. Copy the https URL (e.g., https://a1b2-c3d4.ngrok-free.app)
+# 3. Paste it below inside the quotes:
+MPESA_CALLBACK_URL = 'https://noncultivable-glazily-riley.ngrok-free.dev/mpesa/callback'
+
 # Use sandbox for testing, production for live
-MPESA_ENVIRONMENT     = os.environ.get('MPESA_ENVIRONMENT', 'sandbox')   # 'sandbox' or 'production'
+MPESA_ENVIRONMENT     = 'sandbox'   # 'sandbox' or 'production'
 # ────────────────────────────────────────────────────────────────────────────────
 
 
@@ -484,6 +496,7 @@ var API="";
 var mode="login";
 var currentProductId=null;
 var currentProduct=null;
+var currentCheckoutId=null; // Added for cancellation
 var products=[];
 document.addEventListener("DOMContentLoaded",function(){updateNavbar();initCarousel();loadProducts();document.getElementById("modal").addEventListener("click",function(e){if(e.target.id==="modal")closeModal()});document.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.getElementById("modal").style.display==="flex")closeModal()})});
 function scrollToProducts(){document.getElementById("products-section").scrollIntoView({behavior:"smooth"})}
@@ -499,13 +512,16 @@ function advanceSlide(n){showSlide(slideIndex+=n)}
 function goToSlide(n){showSlide(slideIndex=n)}
 function showSlide(n){var slides=document.querySelectorAll(".carousel-slide");var dots=document.querySelectorAll(".dot");if(n>slides.length)slideIndex=1;if(n<1)slideIndex=slides.length;var c=document.getElementById("carousel-slides");if(c)c.style.transform="translateX(-"+((slideIndex-1)*100)+"%)";for(var i=0;i<dots.length;i++)dots[i].className="dot";if(dots[slideIndex-1])dots[slideIndex-1].className="dot active"}
 function changeSlide(n){clearInterval(autoSlideInterval);advanceSlide(n);autoSlideInterval=setInterval(function(){advanceSlide(1)},5000)}
-function resetModal(){document.getElementById("username-group").style.display="none";document.getElementById("prod-group").style.display="none";document.getElementById("mpesa-group").style.display="none";document.getElementById("payment-summary-box").style.display="none";document.getElementById("email-group").style.display="block";document.getElementById("password-group").style.display="block";var inputs=document.querySelectorAll(".form-input");for(var i=0;i<inputs.length;i++)inputs[i].value="";document.getElementById("switch-btn").style.display="block";document.getElementById("switch-btn").innerText="";var btn=document.getElementById("btn-submit-text");btn.disabled=false;btn.innerText=""}
+function resetModal(){document.getElementById("username-group").style.display="none";document.getElementById("prod-group").style.display="none";document.getElementById("mpesa-group").style.display="none";document.getElementById("payment-summary-box").style.display="none";document.getElementById("email-group").style.display="block";document.getElementById("password-group").style.display="block";var inputs=document.querySelectorAll(".form-input");for(var i=0;i<inputs.length;i++)inputs[i].value="";document.getElementById("switch-btn").style.display="block";document.getElementById("switch-btn").innerText="";var btn=document.getElementById("btn-submit-text");btn.disabled=false;btn.innerText="";btn.style.background="";btn.onclick=null}
 function openLogin(){mode="login";resetModal();document.getElementById("modal-title").innerText="Welcome Back";document.getElementById("modal-desc").innerText="Login to continue shopping";document.getElementById("btn-submit-text").innerText="Login";document.getElementById("switch-btn").innerText="Don't have an account? Sign Up";document.getElementById("switch-btn").onclick=openSignup;document.getElementById("modal").style.display="flex"}
 function openSignup(){mode="signup";resetModal();document.getElementById("modal-title").innerText="Create Account";document.getElementById("modal-desc").innerText="Join EduMarket today";document.getElementById("username-group").style.display="block";document.getElementById("btn-submit-text").innerText="Sign Up";document.getElementById("switch-btn").innerText="Already have an account? Login";document.getElementById("switch-btn").onclick=openLogin;document.getElementById("modal").style.display="flex"}
 function openPayModal(){mode="pay";resetModal();document.getElementById("modal-title").innerText="M-Pesa Payment";document.getElementById("modal-desc").innerText="You will receive an STK push on your phone";document.getElementById("email-group").style.display="none";document.getElementById("password-group").style.display="none";document.getElementById("switch-btn").style.display="none";document.getElementById("mpesa-group").style.display="block";if(currentProduct){document.getElementById("payment-summary-box").style.display="block";document.getElementById("pay-item-name").innerText=currentProduct.name;document.getElementById("pay-item-price").innerText="KES "+Number(currentProduct.price).toLocaleString()}document.getElementById("btn-submit-text").innerText="Send STK Push";document.getElementById("modal").style.display="flex"}
 function openAddProduct(){if(!localStorage.getItem("user")){showToast("You must be logged in to add products","error");openLogin();return}mode="addProduct";resetModal();document.getElementById("modal-title").innerText="Add New Product";document.getElementById("modal-desc").innerText="Fill in product details";document.getElementById("email-group").style.display="none";document.getElementById("password-group").style.display="none";document.getElementById("switch-btn").style.display="none";document.getElementById("prod-group").style.display="block";document.getElementById("btn-submit-text").innerText="Add Product";document.getElementById("modal").style.display="flex"}
 function closeModal(){document.getElementById("modal").style.display="none"}
-function submitForm(){var btn=document.getElementById("btn-submit-text");btn.disabled=true;if(mode==="login"){var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Logging in...';fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:password})}).then(function(r){return r.json()}).then(function(data){if(data.user){localStorage.setItem("user",JSON.stringify(data.user));showToast("Login successful!","success");closeModal();updateNavbar()}else{showToast(data.message||"Invalid email or password","error");btn.innerText="Login";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Login";btn.disabled=false})}else if(mode==="signup"){var username=document.getElementById("username").value.trim();var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!username||!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Creating account...';fetch(API+"/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username,email:email,password:password})}).then(function(r){return{json:r.json(),ok:r.ok}}).then(function(resp){return resp.json.then(function(data){if(resp.ok){showToast("Signup successful! Please login.","success");openLogin()}else{showToast(data.message||"Signup failed","error");btn.innerText="Sign Up";btn.disabled=false}})}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Sign Up";btn.disabled=false})}else if(mode==="addProduct"){var name=document.getElementById("prod-name").value.trim();var price=document.getElementById("prod-price").value;var img=document.getElementById("prod-img").value.trim();if(!name||!price){showToast("Name and Price are required","error");btn.disabled=false;return}if(!img)img="https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80";btn.innerHTML='<span class="loading-spinner"></span> Adding...';fetch(API+"/add_product",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,price:Number(price),img:img})}).then(function(r){return r.json()}).then(function(){showToast("Product added!","success");closeModal();loadProducts()}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Add Product";btn.disabled=false})}else if(mode==="pay"){var phone=document.getElementById("mpesa-phone").value.trim();if(!phone){showToast("Enter phone number","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Sending STK Push...';fetch(API+"/pay",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:phone,product_id:currentProductId})}).then(function(r){return r.json()}).then(function(data){if(data.success){showToast(data.message||"STK Push sent! Check your phone.","success");closeModal()}else{showToast(data.error||"Payment failed","error");btn.innerHTML="Send STK Push";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerHTML="Send STK Push";btn.disabled=false})}}
+function cancelPayment(){if(!currentCheckoutId){showToast("No active payment","error");return}
+var btn=document.getElementById("btn-submit-text");btn.disabled=true;btn.innerHTML='<span class="loading-spinner"></span> Cancelling...';
+fetch(API+"/cancel_payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({checkout_request_id:currentCheckoutId})}).then(function(r){return r.json()}).then(function(d){showToast("Payment cancelled successfully","info");closeModal()}).catch(function(){showToast("Could not cancel payment","error");btn.disabled=false;btn.innerHTML="Cancel Payment"})}
+function submitForm(){var btn=document.getElementById("btn-submit-text");btn.disabled=true;if(mode==="login"){var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Logging in...';fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:password})}).then(function(r){return r.json()}).then(function(data){if(data.user){localStorage.setItem("user",JSON.stringify(data.user));showToast("Login successful!","success");closeModal();updateNavbar()}else{showToast(data.message||"Invalid email or password","error");btn.innerText="Login";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Login";btn.disabled=false})}else if(mode==="signup"){var username=document.getElementById("username").value.trim();var email=document.getElementById("email").value.trim();var password=document.getElementById("password").value;if(!username||!email||!password){showToast("Fill in all fields","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Creating account...';fetch(API+"/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username,email:email,password:password})}).then(function(r){return{json:r.json(),ok:r.ok}}).then(function(resp){return resp.json.then(function(data){if(resp.ok){showToast("Signup successful! Please login.","success");openLogin()}else{showToast(data.message||"Signup failed","error");btn.innerText="Sign Up";btn.disabled=false}})}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Sign Up";btn.disabled=false})}else if(mode==="addProduct"){var name=document.getElementById("prod-name").value.trim();var price=document.getElementById("prod-price").value;var img=document.getElementById("prod-img").value.trim();if(!name||!price){showToast("Name and Price are required","error");btn.disabled=false;return}if(!img)img="https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80";btn.innerHTML='<span class="loading-spinner"></span> Adding...';fetch(API+"/add_product",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,price:Number(price),img:img})}).then(function(r){return r.json()}).then(function(){showToast("Product added!","success");closeModal();loadProducts()}).catch(function(){showToast("Could not connect to server","error");btn.innerText="Add Product";btn.disabled=false})}else if(mode==="pay"){var phone=document.getElementById("mpesa-phone").value.trim();if(!phone){showToast("Enter phone number","error");btn.disabled=false;return}btn.innerHTML='<span class="loading-spinner"></span> Sending STK Push...';fetch(API+"/pay",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:phone,product_id:currentProductId})}).then(function(r){return r.json()}).then(function(data){if(data.success){showToast(data.message||"STK Push sent! Check your phone.","success");currentCheckoutId=data.checkout_request_id;btn.innerHTML="Cancel Payment";btn.style.background="#ef4444";btn.disabled=false;btn.onclick=function(){cancelPayment()}}else{showToast(data.error||"Payment failed","error");btn.innerHTML="Send STK Push";btn.disabled=false}}).catch(function(){showToast("Could not connect to server","error");btn.innerHTML="Send STK Push";btn.disabled=false})}}
 function toggleAuthMode(){if(mode==="login")openSignup();else openLogin()}
 </script>
 </body>
@@ -645,6 +661,25 @@ def pay():
 
     except Exception as e:
         db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/cancel_payment', methods=['POST'])
+def cancel_payment():
+    """Allows user to cancel a pending payment from the UI."""
+    try:
+        data = request.get_json()
+        checkout_id = data.get('checkout_request_id')
+        if not checkout_id:
+            return jsonify({"success": False, "error": "Missing checkout ID"}), 400
+        
+        txn = Transaction.query.filter_by(checkout_request_id=checkout_id).first()
+        if txn:
+            txn.status = 'cancelled'
+            db.session.commit()
+            return jsonify({"success": True})
+        return jsonify({"success": False, "error": "Transaction not found"}), 404
+    except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
