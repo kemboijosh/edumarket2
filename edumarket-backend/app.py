@@ -1,12 +1,26 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
+def find_file(filename):
+    d = BASE_DIR
+    for _ in range(3):
+        candidate = os.path.join(d, filename)
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return os.path.join(BASE_DIR, filename)
+
+INDEX_PATH = find_file('index.html')
+
+app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -46,7 +60,7 @@ class User(db.Model):
 
 @app.route('/')
 def index():
-    return send_from_directory(BASE_DIR, 'index.html')
+    return send_file(INDEX_PATH)
 
 
 @app.route('/api/health')
@@ -54,7 +68,7 @@ def health():
     try:
         db.session.execute(db.text('SELECT 1'))
         product_count = Product.query.count()
-        return jsonify({"status": "healthy", "database": "connected", "products": product_count})
+        return jsonify({"status": "healthy", "database": "connected", "products": product_count, "index_at": INDEX_PATH})
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
